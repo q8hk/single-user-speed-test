@@ -1,5 +1,8 @@
 <?php
 
+require_once __DIR__ . '/queue_lib.php';
+speedtest_queue_require_active_token();
+
 // Disable Compression
 @ini_set('zlib.output_compression', 'Off');
 @ini_set('output_buffering', 'Off');
@@ -31,11 +34,6 @@ function getChunkCount()
 function sendHeaders()
 {
     header('HTTP/1.1 200 OK');
-
-    if (isset($_GET['cors'])) {
-        header('Access-Control-Allow-Origin: *');
-        header('Access-Control-Allow-Methods: GET, POST');
-    }
 
     // Indicate a file download
     header('Content-Description: File Transfer');

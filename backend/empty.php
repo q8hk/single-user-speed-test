@@ -1,12 +1,13 @@
 <?php
 
-header('HTTP/1.1 200 OK');
+require_once __DIR__ . '/queue_lib.php';
+speedtest_queue_handle_preflight();
 
-if (isset($_GET['cors'])) {
-    header('Access-Control-Allow-Origin: *');
-    header('Access-Control-Allow-Methods: GET, POST');
-    header('Access-Control-Allow-Headers: Content-Encoding, Content-Type');
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    speedtest_queue_require_active_token();
 }
+
+header('HTTP/1.1 200 OK');
 
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0, s-maxage=0');
 header('Cache-Control: post-check=0, pre-check=0', false);

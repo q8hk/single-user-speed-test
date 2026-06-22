@@ -10,6 +10,7 @@ const INITIALIZING = 0;
 const READY = 1;
 const RUNNING = 2;
 const FINISHED = 3;
+const WAITING = 4;
 
 // Keep some global state here
 const testState = {
@@ -20,6 +21,8 @@ const testState = {
   testData: null,
   testDataDirty: false,
   telemetryEnabled: false,
+  queue: null,
+  queuePosition: null,
 };
 
 // Bootstrap the application when the DOM is ready
@@ -40,8 +43,15 @@ function createSpeedtest() {
     testState.testData = data;
     testState.testDataDirty = true;
   };
-  testState.speedtest.onend = (aborted) =>
-    (testState.state = aborted ? READY : FINISHED);
+  testState.speedtest.onend = async (aborted) => {
+    if (testState.queue) {
+      await testState.queue.release();
+      testState.queue = null;
+    }
+    testState.speedtest.setParameter("queue_token", "");
+    testState.queuePosition = null;
+    testState.state = aborted ? READY : FINISHED;
+  };
 }
 
 /**
@@ -76,12 +86,17 @@ function hookUpButtons() {
 /**
  * Event listener for clicks on the main start button
  */
-function startButtonClickHandler() {
+async function startButtonClickHandler() {
   switch (testState.state) {
     case READY:
     case FINISHED:
-      testState.speedtest.start();
-      testState.state = RUNNING;
+      await joinQueueAndStart();
+      return;
+    case WAITING:
+      if (testState.queue) await testState.queue.cancel();
+      testState.queue = null;
+      testState.queuePosition = null;
+      testState.state = READY;
       return;
     case RUNNING:
       testState.speedtest.abort();
@@ -89,6 +104,40 @@ function startButtonClickHandler() {
       return;
     default:
       return;
+  }
+}
+
+function selectedQueueURL() {
+  const server = testState.speedtest.getSelectedServer();
+  return server && server.server
+    ? server.server + "queue.php"
+    : "backend/queue.php";
+}
+
+async function joinQueueAndStart() {
+  testState.state = WAITING;
+  testState.queuePosition = null;
+  const queue = new SpeedtestQueueClient(selectedQueueURL(), (status) => {
+    testState.queuePosition = status.position || null;
+  });
+  testState.queue = queue;
+
+  try {
+    const token = await queue.waitForTurn();
+    if (testState.queue !== queue) return;
+    testState.speedtest.setParameter("queue_token", token);
+    queue.heartbeat();
+    testState.speedtest.start();
+    testState.state = RUNNING;
+  } catch (error) {
+    if (queue.cancelled) return;
+    if (testState.queue === queue) {
+      testState.queue = null;
+      testState.queuePosition = null;
+      testState.state = READY;
+      console.error("Failed to enter speed test queue:", error);
+      alert("The speed test queue is currently unavailable. Please try again.");
+    }
   }
 }
 
@@ -311,6 +360,7 @@ function startRenderingLoop() {
     [READY]: "Let's start",
     [RUNNING]: "Abort",
     [FINISHED]: "Restart",
+    [WAITING]: "Cancel wait",
   };
 
   // Show copy link button only if navigator.clipboard is available
@@ -318,12 +368,18 @@ function startRenderingLoop() {
 
   function renderUI() {
     // Make the main button reflect the current state
-    startButton.textContent = buttonTexts[testState.state];
+    startButton.textContent =
+      testState.state === WAITING && testState.queuePosition
+        ? `Waiting: #${testState.queuePosition} (cancel)`
+        : buttonTexts[testState.state];
     startButton.classList.toggle("disabled", testState.state === INITIALIZING);
     startButton.classList.toggle("active", testState.state === RUNNING);
 
     // Disable the server selector while test is running
-    serverSelector.classList.toggle("disabled", testState.state === RUNNING);
+    serverSelector.classList.toggle(
+      "disabled",
+      testState.state === RUNNING || testState.state === WAITING
+    );
 
     // Show selected server
     if (testState.selectedServerDirty) {
