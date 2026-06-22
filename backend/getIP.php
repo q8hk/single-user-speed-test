@@ -8,6 +8,9 @@
 
 error_reporting(0);
 
+require_once __DIR__ . '/queue_lib.php';
+speedtest_queue_handle_preflight();
+
 define('API_KEY_FILE', 'getIP_ipInfo_apikey.php');
 define('SERVER_LOCATION_CACHE_FILE', 'getIP_serverLocation.php');
 define('OFFLINE_IPINFO_DB_FILE', 'country_asn.mmdb');
@@ -165,10 +168,6 @@ function formatResponse_simple($ip,$ispName=null){
 }
 
 header('Content-Type: application/json; charset=utf-8');
-if (isset($_GET['cors'])) {
-    header('Access-Control-Allow-Origin: *');
-    header('Access-Control-Allow-Methods: GET, POST');
-}
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0, s-maxage=0');
 header('Cache-Control: post-check=0, pre-check=0', false);
 header('Pragma: no-cache');

@@ -6,6 +6,7 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, user-scalable=no" />
 	<meta charset="UTF-8" />
 	<script type="text/javascript" src="speedtest.js"></script>
+	<script type="text/javascript" src="queue-client.js"></script>
 	<script type="text/javascript">
 		function I(i) { return document.getElementById(i); }
 
@@ -32,7 +33,6 @@
 
 		//INITIALIZE SPEEDTEST
 		var s = new Speedtest(); //create speed test object
-		s.setParameter("telemetry_level", "basic"); //enable basic telemetry (for results sharing)
 
 		//SERVER AUTO SELECTION
 		function initServers() {
@@ -157,7 +157,31 @@
 
 		//UI CODE
 		var uiData = null;
-		function startStop() {
+		var queueClient = null;
+		var queueWaiting = false;
+		function selectedQueueURL() {
+			try {
+				var server = s.getSelectedServer();
+				return server && server.server ? server.server + "queue.php" : "backend/queue.php";
+			} catch (error) {
+				return "backend/queue.php";
+			}
+		}
+		async function releaseQueue() {
+			if (queueClient) await queueClient.release();
+			queueClient = null;
+			queueWaiting = false;
+			s.setParameter("queue_token", "");
+		}
+		async function startStop() {
+			if (queueWaiting) {
+				await releaseQueue();
+				I("startStopBtn").className = "";
+				I("startStopBtn").setAttribute("aria-label", "Start");
+				I("server").disabled = false;
+				I("queueStatus").textContent = "";
+				return;
+			}
 			if (s.getState() == 3) {
 				//speed test is running, abort
 				s.abort();
@@ -167,15 +191,39 @@
 				I("server").disabled = false;
 				initUI();
 			} else {
-				//test is not running, begin
-				I("startStopBtn").className = "running";
-				I("startStopBtn").setAttribute("aria-label", "Abort");
+				//test is not running, wait for exclusive access
+				queueWaiting = true;
+				I("startStopBtn").className = "waiting";
+				I("startStopBtn").setAttribute("aria-label", "Cancel queue wait");
 				I("shareArea").style.display = "none";
 				I("server").disabled = true;
+				queueClient = new SpeedtestQueueClient(selectedQueueURL(), function (status) {
+					if (status.position) I("queueStatus").textContent = "Waiting in queue: position " + status.position;
+				});
+				var currentQueue = queueClient;
+				var token;
+				try {
+					token = await currentQueue.waitForTurn();
+				} catch (error) {
+					if (currentQueue.cancelled) return;
+					await releaseQueue();
+					I("startStopBtn").className = "";
+					I("server").disabled = false;
+					I("queueStatus").textContent = "Queue unavailable. Please try again.";
+					return;
+				}
+				if (currentQueue.cancelled || queueClient !== currentQueue) return;
+				queueWaiting = false;
+				I("queueStatus").textContent = "";
+				I("startStopBtn").className = "running";
+				I("startStopBtn").setAttribute("aria-label", "Abort");
+				s.setParameter("queue_token", token);
+				queueClient.heartbeat();
 				s.onupdate = function (data) {
 					uiData = data;
 				};
-				s.onend = function (aborted) {
+				s.onend = async function (aborted) {
+					await releaseQueue();
 					I("startStopBtn").className = "";
 					I("startStopBtn").setAttribute("aria-label", "Start");
 					I("server").disabled = false;
@@ -311,6 +359,15 @@
 
 		#startStopBtn.running:before {
 			content: "Abort";
+		}
+
+		#startStopBtn.waiting:before {
+			content: "Cancel wait";
+		}
+
+		#queueStatus {
+			min-height: 1.5em;
+			margin: 0.5em 0;
 		}
 
 		#serverArea {
@@ -524,6 +581,7 @@
 	</div>
 	<div id="testWrapper" class="hidden">
 		<button id="startStopBtn" onclick="startStop()" aria-label="Start"></button><br />
+		<div id="queueStatus" role="status" aria-live="polite"></div>
 		<a class="privacy" href="#" onclick="I('privacyPolicy').style.display=''">Privacy</a>
 		<div id="serverArea">
 			Server: <select id="server" onchange="s.setSelectedServer(SPEEDTEST_SERVERS[this.value])"></select>

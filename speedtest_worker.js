@@ -48,6 +48,7 @@ let settings = {
 	url_dl: "backend/garbage.php", // path to a large file or garbage.php, used for download test. must be relative to this js file
 	url_ul: "backend/empty.php", // path to an empty file, used for upload test. must be relative to this js file
 	url_ping: "backend/empty.php", // path to an empty file, used for ping test. must be relative to this js file
+	queue_token: "", // active server queue lease; appended to bandwidth requests
 	url_getIp: "backend/getIP.php", // path to getIP.php relative to this js file, or a similar thing that outputs the client's ip
 	getIp_ispInfo: true, //if set to true, the server will include ISP info with the IP address
 	getIp_ispInfo_distance: "km", //km or mi=estimate distance from server in km/mi; set to false to disable distance estimation. getIp_ispInfo must be enabled in order for this to work
@@ -374,6 +375,7 @@ function dlTest(done) {
 					else xhr[i].responseType = "arraybuffer";
 				} catch (e) {}
 				xhr[i].open("GET", settings.url_dl + url_sep(settings.url_dl) + (settings.mpot ? "cors=true&" : "") + "r=" + Math.random() + "&ckSize=" + settings.garbagePhp_chunkSize, true); // random string to prevent caching
+				xhr[i].setRequestHeader("X-Speedtest-Queue-Token", settings.queue_token);
 				xhr[i].send();
 			}.bind(this),
 			1 + delay
@@ -481,6 +483,7 @@ function ulTest(done) {
 							testStream(i, 0);
 						};
 						xhr[i].open("POST", settings.url_ul + url_sep(settings.url_ul) + (settings.mpot ? "cors=true&" : "") + "r=" + Math.random(), true); // random string to prevent caching
+						xhr[i].setRequestHeader("X-Speedtest-Queue-Token", settings.queue_token);
 						try {
 							xhr[i].setRequestHeader("Content-Encoding", "identity"); // disable compression (some browsers may refuse it, but data is incompressible anyway)
 						} catch (e) {}
@@ -517,6 +520,7 @@ function ulTest(done) {
 						}.bind(this);
 						// send xhr
 						xhr[i].open("POST", settings.url_ul + url_sep(settings.url_ul) + (settings.mpot ? "cors=true&" : "") + "r=" + Math.random(), true); // random string to prevent caching
+						xhr[i].setRequestHeader("X-Speedtest-Queue-Token", settings.queue_token);
 						try {
 							xhr[i].setRequestHeader("Content-Encoding", "identity"); // disable compression (some browsers may refuse it, but data is incompressible anyway)
 						} catch (e) {}
@@ -580,6 +584,7 @@ function ulTest(done) {
 			testFunction();
 		}.bind(this);
 		xhr[0].open("POST", settings.url_ul);
+		xhr[0].setRequestHeader("X-Speedtest-Queue-Token", settings.queue_token);
 		xhr[0].send();
 	} else testFunction();
 }

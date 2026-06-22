@@ -2,6 +2,31 @@
 
 # LibreSpeed
 
+## Single-user speed test queue
+
+This build uses a server-side FIFO queue so only one browser can run a bandwidth
+test at a time. Waiting clients poll for their position, active clients renew a
+45-second lease, and abandoned leases expire automatically.
+
+The queue state is stored in the system temporary directory by default. Set
+`SPEEDTEST_QUEUE_FILE` to an absolute path on shared storage when multiple
+Apache/PHP instances serve the same speed-test backend.
+
+Queue leases are random bearer tokens held only in browser memory and sent in
+the `X-Speedtest-Queue-Token` header. They are not based on IP addresses or
+cookies and are not placed in request URLs. The backend stores no names, raw IP
+addresses, user agents, or speed-test results. Short-lived keyed hashes of
+client IP addresses are used only to enforce join rate limits.
+
+For multiple-point deployments, set `SPEEDTEST_ALLOWED_ORIGINS` on each backend
+to a comma-separated list of exact frontend origins, for example
+`https://speed.example.com`. Same-host origins are allowed automatically.
+HTTPS is enforced except on localhost. If TLS terminates at a trusted reverse
+proxy, set `SPEEDTEST_ASSUME_HTTPS=true`. For explicit local development only,
+`SPEEDTEST_ALLOW_INSECURE_HTTP=true` disables this check. The queue file is
+created with mode `0600`; any custom queue-file parent directory should be
+private to the web server account.
+
 No Flash, No Java, No Websocket, No Bullshit.
 
 This is a very lightweight speed test implemented in Javascript, using XMLHttpRequest and Web Workers.
