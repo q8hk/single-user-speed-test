@@ -209,7 +209,7 @@
 					await releaseQueue();
 					I("startStopBtn").className = "";
 					I("server").disabled = false;
-					I("queueStatus").textContent = "Queue unavailable. Please try again.";
+					I("queueStatus").textContent = error.message || "Queue unavailable. Please try again.";
 					return;
 				}
 				if (currentQueue.cancelled || queueClient !== currentQueue) return;

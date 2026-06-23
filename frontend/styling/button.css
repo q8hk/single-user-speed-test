@@ -58,8 +58,15 @@ button {
     transform: scale(1.03) translate3d(0, 0, 0) perspective(1px);
   }
   &.active,
+  &.waiting,
   &:active {
-    background-position: 100% 0%;
+    color: var(--button-active-text-color);
+    background: var(--button-active-background-color);
+    border: 0.2rem solid var(--button-active-border-color);
+    box-shadow: 0 0 1.8rem 0.35rem var(--button-shadow-color);
+  }
+  &.active,
+  &:active {
     animation: pulse 0.7s;
   }
 }

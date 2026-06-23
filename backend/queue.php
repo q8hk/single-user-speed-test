@@ -20,6 +20,14 @@ $token = is_array($input) && isset($input['token']) ? (string) $input['token'] :
 try {
     $response = speedtest_queue_with_lock(function (&$state, $now) use ($action, $token) {
         if ($action === 'join') {
+            $clientKey = speedtest_queue_client_key($state);
+            if (!speedtest_queue_cooldown_allows_join($state, $clientKey, $now)) {
+                return ['error' => 'Please wait five minutes before running another speed test'];
+            }
+            if (speedtest_queue_client_is_present($state, $clientKey)) {
+                http_response_code(409);
+                return ['error' => 'This client is already queued or running a speed test'];
+            }
             if (!speedtest_queue_rate_limit_join($state, $now)) {
                 return ['error' => 'Too many queue joins. Please wait before trying again'];
             }
@@ -30,6 +38,7 @@ try {
             $token = bin2hex(random_bytes(24));
             $state['waiting'][] = [
                 'token' => $token,
+                'clientKey' => $clientKey,
                 'expiresAt' => $now + SPEEDTEST_QUEUE_WAITING_TTL,
             ];
         } elseif (!in_array($action, ['status', 'heartbeat', 'leave', 'release'], true)) {
@@ -42,6 +51,11 @@ try {
 
         if ($action === 'leave' || $action === 'release') {
             if (!empty($state['active']) && hash_equals($state['active']['token'], $token)) {
+                speedtest_queue_apply_cooldown(
+                    $state,
+                    $state['active']['clientKey'] ?? '',
+                    $now
+                );
                 $state['active'] = null;
             }
             $state['waiting'] = array_values(array_filter(

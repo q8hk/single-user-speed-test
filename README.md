@@ -6,7 +6,9 @@
 
 This build uses a server-side FIFO queue so only one browser can run a bandwidth
 test at a time. Waiting clients poll for their position, active clients renew a
-45-second lease, and abandoned leases expire automatically.
+45-second lease, and abandoned leases expire automatically. After a test ends
+or its active lease expires, that client IP must wait five minutes before
+joining again.
 
 The queue state is stored in the system temporary directory by default. Set
 `SPEEDTEST_QUEUE_FILE` to an absolute path on shared storage when multiple
@@ -16,7 +18,14 @@ Queue leases are random bearer tokens held only in browser memory and sent in
 the `X-Speedtest-Queue-Token` header. They are not based on IP addresses or
 cookies and are not placed in request URLs. The backend stores no names, raw IP
 addresses, user agents, or speed-test results. Short-lived keyed hashes of
-client IP addresses are used only to enforce join rate limits.
+client IP addresses are used only to enforce join rate limits and the
+five-minute cooldown.
+
+Queue garbage collection runs during every queue transaction. Expired waiting
+entries, rate-limit windows, and cooldown records are removed automatically,
+and tracked-client maps are capped to prevent the state file from growing
+without bound. Download and upload responses also use no-store cache headers
+and generate test data in memory rather than persisting it.
 
 For multiple-point deployments, set `SPEEDTEST_ALLOWED_ORIGINS` on each backend
 to a comma-separated list of exact frontend origins, for example
