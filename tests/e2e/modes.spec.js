@@ -1,38 +1,38 @@
-const { test, expect } = require('@playwright/test');
-const { baseUrls } = require('./helpers/env');
-const { modernStartButton } = require('./helpers/ui');
+const { test, expect } = require("@playwright/test");
+const { baseUrls } = require("./helpers/env");
+const { modernStartButton } = require("./helpers/ui");
 
-test.describe('Runtime mode smoke coverage', () => {
-  test('standalone exposes UI and local backend endpoints', async ({ page, request }) => {
+test.describe("Runtime mode smoke coverage", () => {
+  test("standalone exposes UI and local backend endpoints", async ({ page, request }) => {
     const root = await request.get(`${baseUrls.standalone}/`);
     expect(root.ok()).toBeTruthy();
 
     const index = await request.get(`${baseUrls.standalone}/index.html`);
     expect(index.ok()).toBeTruthy();
-    await expect(await index.text()).toContain('design-switch.js');
+    await expect(await index.text()).toContain("index-modern.html");
 
-    for (const endpoint of ['/backend/empty.php', '/backend/garbage.php', '/backend/getIP.php']) {
+    for (const endpoint of ["/backend/empty.php", "/backend/garbage.php", "/backend/getIP.php"]) {
       const response = await request.get(`${baseUrls.standalone}${endpoint}`);
       expect(response.ok()).toBeTruthy();
     }
 
     await page.goto(`${baseUrls.standalone}/index-modern.html`);
     await expect(modernStartButton(page)).toBeVisible();
-    await expect(page.locator('main > h1')).toHaveText('Speed test');
-    await expect(page.locator('main > p.tagline')).toHaveCount(0);
+    await expect(page.locator("main > h1")).toHaveText("Speed test");
+    await expect(page.locator("main > p.tagline")).toHaveCount(0);
   });
 
-  test('backend exposes only local backend contract endpoints', async ({ request }) => {
-    for (const endpoint of ['/empty.php', '/garbage.php', '/getIP.php']) {
+  test("backend exposes only local backend contract endpoints", async ({ request }) => {
+    for (const endpoint of ["/empty.php", "/garbage.php", "/getIP.php"]) {
       const response = await request.get(`${baseUrls.backend}${endpoint}`);
       expect(response.ok()).toBeTruthy();
     }
   });
 
-  test('frontend serves UI and server list without local backend contract', async ({ page, request }) => {
+  test("frontend serves UI and server list without local backend contract", async ({ page, request }) => {
     const serverList = await request.get(`${baseUrls.frontend}/server-list.json`);
     expect(serverList.ok()).toBeTruthy();
-    await expect(await serverList.text()).toContain('Backend testpoint');
+    await expect(await serverList.text()).toContain("Backend testpoint");
 
     const localBackendEndpoint = await request.get(`${baseUrls.frontend}/backend/empty.php`);
     expect(localBackendEndpoint.status()).toBe(404);
@@ -40,15 +40,15 @@ test.describe('Runtime mode smoke coverage', () => {
     await page.goto(`${baseUrls.frontend}/index-modern.html`);
     await expect(modernStartButton(page)).toBeVisible();
     await expect(modernStartButton(page)).not.toHaveClass(/disabled/);
-    await expect(page.locator('#selected-server')).not.toHaveText(/searching nearest server/i);
+    await expect(page.locator("#selected-server")).not.toHaveText(/searching nearest server/i);
   });
 
-  test('dual combines frontend and local backend availability', async ({ page, request }) => {
+  test("dual combines frontend and local backend availability", async ({ page, request }) => {
     const serverList = await request.get(`${baseUrls.dual}/server-list.json`);
     expect(serverList.ok()).toBeTruthy();
-    await expect(await serverList.text()).toContain('Local dual backend');
+    await expect(await serverList.text()).toContain("Local dual backend");
 
-    for (const endpoint of ['/backend/empty.php', '/backend/garbage.php', '/backend/getIP.php']) {
+    for (const endpoint of ["/backend/empty.php", "/backend/garbage.php", "/backend/getIP.php"]) {
       const response = await request.get(`${baseUrls.dual}${endpoint}`);
       expect(response.ok()).toBeTruthy();
     }

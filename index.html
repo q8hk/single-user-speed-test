@@ -1,16 +1,24 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-
-<head>
-    <link rel="shortcut icon" href="favicon.ico">
+  <head>
+    <link rel="shortcut icon" href="favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, user-scalable=no" />
     <meta charset="UTF-8" />
-    <script type="text/javascript" src="design-switch.js?v=20260626-modern-default"></script>
+    <meta http-equiv="Cache-Control" content="no-store" />
+    <meta http-equiv="refresh" content="0; url=index-modern.html" />
+    <script type="text/javascript">
+      (function () {
+        "use strict";
+        var params = new URLSearchParams(window.location.search);
+        var design = params.get("design");
+        var target = design === "old" || design === "classic" ? "index-classic.html" : "index-modern.html";
+        window.location.replace(target + window.location.search);
+      })();
+    </script>
     <title>LibreSpeed</title>
-</head>
+  </head>
 
-<body>
+  <body>
     <p>Loading...</p>
-</body>
-
+  </body>
 </html>
