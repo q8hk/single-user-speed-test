@@ -3,7 +3,7 @@
 require_once __DIR__ . '/queue_lib.php';
 speedtest_queue_handle_preflight();
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' || ($_GET['queue'] ?? '') === 'stability') {
     speedtest_queue_require_active_token();
 }
 

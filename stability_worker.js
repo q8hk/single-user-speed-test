@@ -28,6 +28,7 @@ let settings = {
   ping_interval: 200, // minimum ms between pings to limit sample rate
   ping_timeout: 5000,
   ping_allowPerformanceApi: true,
+  queue_token: "",
   mpot: false
 };
 
@@ -202,6 +203,9 @@ function doPing() {
     settings.url_ping + url_sep(settings.url_ping) + (settings.mpot ? "cors=true&" : "") + "r=" + Math.random(),
     true
   );
+  if (settings.queue_token) {
+    xhr.setRequestHeader("X-Speedtest-Queue-Token", settings.queue_token);
+  }
   try {
     xhr.timeout = settings.ping_timeout;
   } catch (e) {}
