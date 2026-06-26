@@ -3,21 +3,21 @@ const { baseUrls } = require('./helpers/env');
 const { classicStartButton, modernStartButton } = require('./helpers/ui');
 
 test.describe('Design switch behavior', () => {
-  test('index.html defaults to classic when useNewDesign=false', async ({ page }) => {
+  test('index.html uses classic when useNewDesign=false', async ({ page }) => {
     await page.goto(`${baseUrls.standalone}/index.html`);
     await expect(page).toHaveURL(/index-classic\.html/);
     await expect(classicStartButton(page)).toBeVisible();
   });
 
-  test('index.html defaults to modern on mobile when useNewDesign=false', async ({ browser }) => {
+  test('index.html uses classic on mobile when useNewDesign=false', async ({ browser }) => {
     const context = await browser.newContext({
       viewport: { width: 390, height: 844 },
       isMobile: true,
     });
     const page = await context.newPage();
     await page.goto(`${baseUrls.standalone}/index.html`);
-    await expect(page).toHaveURL(/index-modern\.html/);
-    await expect(modernStartButton(page)).toBeVisible();
+    await expect(page).toHaveURL(/index-classic\.html/);
+    await expect(classicStartButton(page)).toBeVisible();
     await context.close();
   });
 

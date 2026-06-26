@@ -4,7 +4,7 @@ LibreSpeed now supports switching between the classic design and the new modern 
 
 ## Default Behavior
 
-By default, LibreSpeed uses the **classic design** (located in `index-classic.html`) on desktop and the **modern design** (located in `index-modern.html`) on mobile viewports.
+By default, LibreSpeed uses the **modern design** (located in `index-modern.html`) on desktop and mobile viewports.
 
 ## Architecture
 
@@ -52,6 +52,8 @@ Edit the `config.json` file in the root directory and set `useNewDesign` to `tru
 ```
 
 This will make the new design the default for all users visiting your site.
+
+Set `useNewDesign` to `false` to make the classic design the configured default.
 
 ### Method 2: URL Parameter (Temporary Override)
 

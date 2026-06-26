@@ -47,7 +47,7 @@ Run Playwright against containers started with explicit `MODE` values to mirror 
 
 ### A) `standalone`
 Expectations:
-- `GET /` responds and serves UI (classic by default unless overridden)
+- `GET /` responds and serves UI (modern by default unless overridden)
 - `GET /backend/empty.php`, `GET /backend/garbage.php`, `GET /backend/getIP.php` available
 - `GET /results/telemetry.php` reachable (even if telemetry disabled behavior differs)
 - `GET /index.html?design=new` resolves to modern page

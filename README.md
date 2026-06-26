@@ -103,7 +103,7 @@ If you want to contribute or develop with LibreSpeed, see [DEVELOPMENT.md](DEVEL
 
 ## Design switch
 
-LibreSpeed supports both the classic and modern UI. The root `index.html` acts as a lightweight switcher and redirects to `index-classic.html` or `index-modern.html` based on `config.json` (`useNewDesign`) or URL overrides (`?design=new` / `?design=old`). Mobile viewports default to the modern UI when no URL override is provided. For architecture and deployment details (including Docker behavior), see [DESIGN_SWITCH.md](DESIGN_SWITCH.md).
+LibreSpeed supports both the classic and modern UI. The root `index.html` acts as a lightweight switcher and redirects to `index-classic.html` or `index-modern.html` based on `config.json` (`useNewDesign`) or URL overrides (`?design=new` / `?design=old`). Desktop and mobile viewports default to the modern UI when no override is provided. For architecture and deployment details (including Docker behavior), see [DESIGN_SWITCH.md](DESIGN_SWITCH.md).
 
 ## Stability test
 

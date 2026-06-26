@@ -143,6 +143,8 @@ fi
 # Configure design preference via config.json
 if [ "$USE_NEW_DESIGN" == "true" ]; then
   sed -i 's/"useNewDesign": false/"useNewDesign": true/' /var/www/html/config.json
+elif [ "$USE_NEW_DESIGN" == "false" ]; then
+  sed -i 's/"useNewDesign": true/"useNewDesign": false/' /var/www/html/config.json
 fi
 
 # Apply Telemetry settings when running in standalone or frontend mode and telemetry is enabled

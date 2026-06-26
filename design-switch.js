@@ -1,87 +1,75 @@
 /**
  * Feature switch for enabling the new LibreSpeed design
- * 
+ *
  * This script checks for:
  * 1. URL parameter: ?design=new or ?design=old
  * 2. Configuration file: config.json with useNewDesign flag
- * 
- * Default behavior: Shows the old design on desktop and the modern design on mobile
- * 
+ *
+ * Default behavior: Shows the modern design
+ *
  * Note: This script is only loaded on the root index.html
  */
 (function () {
-    'use strict';
+  "use strict";
 
-    // Don't run this script if we're already on a specific design page
-    // This prevents infinite redirect loops
-    const currentPath = window.location.pathname;
-    if (currentPath.includes('index-classic.html') || currentPath.includes('index-modern.html')) {
-        return;
-    }
+  // Don't run this script if we're already on a specific design page
+  // This prevents infinite redirect loops
+  const currentPath = window.location.pathname;
+  if (currentPath.includes("index-classic.html") || currentPath.includes("index-modern.html")) {
+    return;
+  }
 
-    // Check URL parameters first (they override config)
-    const urlParams = new URLSearchParams(window.location.search);
-    const designParam = urlParams.get('design');
+  // Check URL parameters first (they override config)
+  const urlParams = new URLSearchParams(window.location.search);
+  const designParam = urlParams.get("design");
 
-    if (designParam === 'new') {
-        redirectToNewDesign();
-        return;
-    }
+  if (designParam === "new") {
+    redirectToNewDesign();
+    return;
+  }
 
-    if (designParam === 'old' || designParam === 'classic') {
+  if (designParam === "old" || designParam === "classic") {
+    redirectToOldDesign();
+    return;
+  }
+
+  // Check config.json for design preference
+  try {
+    const xhr = new XMLHttpRequest();
+    // Use a synchronous request to prevent a flash of the old design before redirecting
+    xhr.open("GET", "config.json", false);
+    xhr.send(null);
+
+    // Check for a successful response, but not 304 Not Modified, which can have an empty response body
+    if (xhr.status >= 200 && xhr.status < 300) {
+      const config = JSON.parse(xhr.responseText);
+      if (config.useNewDesign === false) {
         redirectToOldDesign();
-        return;
+      } else {
+        redirectToNewDesign();
+      }
+    } else {
+      redirectToDefaultDesign();
     }
+  } catch (error) {
+    // If there's any error (e.g., network, JSON parse), use the device default
+    console.log("Using default design:", error.message || "config error");
+    redirectToDefaultDesign();
+  }
 
-    const useMobileDefault = isMobileViewport();
+  function redirectToNewDesign() {
+    // Preserve any URL parameters when redirecting
+    const currentParams = window.location.search;
+    window.location.href = "index-modern.html" + currentParams;
+  }
 
-    // Check config.json for design preference
-    try {
-        const xhr = new XMLHttpRequest();
-        // Use a synchronous request to prevent a flash of the old design before redirecting
-        xhr.open('GET', 'config.json', false);
-        xhr.send(null);
+  function redirectToOldDesign() {
+    // Preserve any URL parameters when redirecting
+    const currentParams = window.location.search;
+    window.location.href = "index-classic.html" + currentParams;
+  }
 
-        // Check for a successful response, but not 304 Not Modified, which can have an empty response body
-        if (xhr.status >= 200 && xhr.status < 300) {
-            const config = JSON.parse(xhr.responseText);
-            if (config.useNewDesign === true) {
-                redirectToNewDesign();
-            } else if (useMobileDefault) {
-                redirectToNewDesign();
-            } else {
-                redirectToOldDesign();
-            }
-        } else {
-            redirectToDefaultDesign();
-        }
-    } catch (error) {
-        // If there's any error (e.g., network, JSON parse), use the device default
-        console.log('Using default design:', error.message || 'config error');
-        redirectToDefaultDesign();
-    }
-
-    function redirectToNewDesign() {
-        // Preserve any URL parameters when redirecting
-        const currentParams = window.location.search;
-        window.location.href = 'index-modern.html' + currentParams;
-    }
-
-    function redirectToOldDesign() {
-        // Preserve any URL parameters when redirecting
-        const currentParams = window.location.search;
-        window.location.href = 'index-classic.html' + currentParams;
-    }
-
-    function redirectToDefaultDesign() {
-        if (useMobileDefault) {
-            redirectToNewDesign();
-        } else {
-            redirectToOldDesign();
-        }
-    }
-
-    function isMobileViewport() {
-        return window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
-    }
+  function redirectToDefaultDesign() {
+    redirectToNewDesign();
+  }
 })();
