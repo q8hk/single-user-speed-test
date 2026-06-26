@@ -213,14 +213,8 @@ function speedtest_queue_cooldown_allows_join($state, $clientKey, $now)
     return false;
 }
 
-function speedtest_queue_client_is_present($state, $clientKey)
+function speedtest_queue_client_is_waiting($state, $clientKey)
 {
-    if (
-        !empty($state['active'])
-        && hash_equals((string) ($state['active']['clientKey'] ?? ''), $clientKey)
-    ) {
-        return true;
-    }
     foreach ($state['waiting'] as $entry) {
         if (hash_equals((string) ($entry['clientKey'] ?? ''), $clientKey)) {
             return true;

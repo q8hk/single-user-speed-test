@@ -24,9 +24,9 @@ try {
             if (!speedtest_queue_cooldown_allows_join($state, $clientKey, $now)) {
                 return ['error' => 'Please wait five minutes before running another speed test'];
             }
-            if (speedtest_queue_client_is_present($state, $clientKey)) {
+            if (speedtest_queue_client_is_waiting($state, $clientKey)) {
                 http_response_code(409);
-                return ['error' => 'This client is already queued or running a speed test'];
+                return ['error' => 'This client is already queued for a speed test'];
             }
             if (!speedtest_queue_rate_limit_join($state, $now)) {
                 return ['error' => 'Too many queue joins. Please wait before trying again'];
@@ -51,11 +51,10 @@ try {
 
         if ($action === 'leave' || $action === 'release') {
             if (!empty($state['active']) && hash_equals($state['active']['token'], $token)) {
-                speedtest_queue_apply_cooldown(
-                    $state,
-                    $state['active']['clientKey'] ?? '',
-                    $now
-                );
+                $activeClientKey = $state['active']['clientKey'] ?? '';
+                if (!speedtest_queue_client_is_waiting($state, $activeClientKey)) {
+                    speedtest_queue_apply_cooldown($state, $activeClientKey, $now);
+                }
                 $state['active'] = null;
             }
             $state['waiting'] = array_values(array_filter(
