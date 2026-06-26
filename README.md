@@ -36,8 +36,6 @@ proxy, set `SPEEDTEST_ASSUME_HTTPS=true`. For explicit local development only,
 created with mode `0600`; any custom queue-file parent directory should be
 private to the web server account.
 
-No Flash, No Java, No Websocket, No Bullshit.
-
 This is a very lightweight speed test implemented in Javascript, using XMLHttpRequest and Web Workers.
 
 ## Try it
@@ -60,8 +58,6 @@ Works with mobile versions too.
 * Results sharing (optional)
 * Multiple Points of Test (optional)
 * Connection stability test with latency charting, loss tracking, threshold alerts, and CSV export
-
-![Screenrecording of the single-user queue](screenshots/single-user-queue/single-user-queue.gif)
 
 ## Server requirements
 

@@ -95,7 +95,7 @@ if [[ "$MODE" == "frontend" || "$MODE" == "dual" ||  "$MODE" == "standalone" ]];
   else
     echo "no /servers.json found, create one for local host"
     # generate config for just the local server
-    echo '[{"name":"local","server":"/backend",  "dlURL": "garbage.php", "ulURL": "empty.php", "pingURL": "empty.php", "getIpURL": "getIP.php", "sponsorName": "", "sponsorURL": "", "id":1 }]' > /var/www/html/server-list.json
+    echo '[{"name":"local","server":"backend/",  "dlURL": "garbage.php", "ulURL": "empty.php", "pingURL": "empty.php", "getIpURL": "getIP.php", "sponsorName": "", "sponsorURL": "", "id":1 }]' > /var/www/html/server-list.json
   fi
   if [ ! -z "$SERVER_LIST_URL" ]; then
     echo "using SERVER_LIST_URL for frontend server list"
@@ -118,16 +118,7 @@ if [[ "$MODE" == "frontend" || "$MODE" == "dual" ||  "$MODE" == "standalone" ]];
     TITLE_ESCAPED=$(sed_escape "$TITLE_HTML_ESCAPED")
     sed -i "s/<title>LibreSpeed<\\/title>/<title>$TITLE_ESCAPED<\\/title>/g; s/<h1>LibreSpeed<\\/h1>/<h1>$TITLE_ESCAPED<\\/h1>/g" /var/www/html/index-classic.html
     sed -i "s/<title>LibreSpeed<\\/title>/<title>$TITLE_ESCAPED<\\/title>/g" /var/www/html/index.html
-    sed -i "s/<title>LibreSpeed - Free and Open Source Speedtest<\\/title>/<title>$TITLE_ESCAPED - Free and Open Source Speedtest<\\/title>/g; s/<h1>Free and Open Source Speedtest\\.<\\/h1>/<h1>$TITLE_ESCAPED<\\/h1>/g" /var/www/html/index-modern.html
-  fi
-
-  # Replace modern page tagline if TAGLINE is set
-  if [ -n "$TAGLINE" ]; then
-    TAGLINE_ONE_LINE=${TAGLINE//$'\r'/}
-    TAGLINE_ONE_LINE=${TAGLINE_ONE_LINE//$'\n'/ }
-    TAGLINE_HTML_ESCAPED=$(html_escape "$TAGLINE_ONE_LINE")
-    TAGLINE_ESCAPED=$(sed_escape "$TAGLINE_HTML_ESCAPED")
-    sed -i "s/<p class=\"tagline\">No Flash, No Java, No Websockets, No Bullsh\\*t<\\/p>/<p class=\"tagline\">$TAGLINE_ESCAPED<\\/p>/g" /var/www/html/index-modern.html
+    sed -i "s/<title>LibreSpeed - Speed test<\\/title>/<title>$TITLE_ESCAPED - Speed test<\\/title>/g; s/<h1>Speed test<\\/h1>/<h1>$TITLE_ESCAPED<\\/h1>/g" /var/www/html/index-modern.html
   fi
 
   # Support legacy EMAIL env var as fallback for GDPR_EMAIL

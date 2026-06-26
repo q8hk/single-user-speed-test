@@ -2,8 +2,6 @@ const { test, expect } = require('@playwright/test');
 const { baseUrls } = require('./helpers/env');
 const { modernStartButton } = require('./helpers/ui');
 
-const defaultTagline = 'No Flash, No Java, No Websockets, No Bullsh*t';
-
 test.describe('Runtime mode smoke coverage', () => {
   test('standalone exposes UI and local backend endpoints', async ({ page, request }) => {
     const root = await request.get(`${baseUrls.standalone}/`);
@@ -20,7 +18,8 @@ test.describe('Runtime mode smoke coverage', () => {
 
     await page.goto(`${baseUrls.standalone}/index-modern.html`);
     await expect(modernStartButton(page)).toBeVisible();
-    await expect(page.locator('main > p.tagline')).toHaveText(defaultTagline);
+    await expect(page.locator('main > h1')).toHaveText('Speed test');
+    await expect(page.locator('main > p.tagline')).toHaveCount(0);
   });
 
   test('backend exposes only local backend contract endpoints', async ({ request }) => {
@@ -40,6 +39,7 @@ test.describe('Runtime mode smoke coverage', () => {
 
     await page.goto(`${baseUrls.frontend}/index-modern.html`);
     await expect(modernStartButton(page)).toBeVisible();
+    await expect(modernStartButton(page)).not.toHaveClass(/disabled/);
     await expect(page.locator('#selected-server')).not.toHaveText(/searching nearest server/i);
   });
 

@@ -110,7 +110,7 @@ async function startButtonClickHandler() {
 function selectedQueueURL() {
   const server = testState.speedtest.getSelectedServer();
   return server && server.server
-    ? server.server + "queue.php"
+    ? new URL("queue.php", server.server).toString()
     : "backend/queue.php";
 }
 
@@ -197,7 +197,9 @@ async function applyServerListJSON() {
       ? serverSource
       : await fetch(serverSource).then((response) => response.json());
     if (!servers || !Array.isArray(servers) || servers.length === 0) {
-      return console.error("Server list is empty or malformed");
+      console.error("Server list is empty or malformed");
+      useLocalServer();
+      return;
     }
 
     testState.servers = servers;
@@ -240,7 +242,25 @@ async function applyServerListJSON() {
     });
   } catch (error) {
     console.error("Failed to load server list:", error);
+    useLocalServer();
   }
+}
+
+function useLocalServer() {
+  testState.servers = [
+    {
+      name: "local",
+      server: "backend/",
+      dlURL: "garbage.php",
+      ulURL: "empty.php",
+      pingURL: "empty.php",
+      getIpURL: "getIP.php",
+      sponsorName: "",
+      sponsorURL: "",
+      id: 1,
+    },
+  ];
+  populateDropdown(testState.servers);
 }
 
 /**

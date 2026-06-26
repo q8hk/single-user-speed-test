@@ -35,13 +35,6 @@ main {
     }
   }
 
-  & > p.tagline {
-    margin-top: 0;
-    margin-bottom: 6rem;
-    font-size: 2rem;
-    color: var(--tagline-text-color);
-  }
-
   & a {
     font-size: 1.6rem;
     font-weight: 700;
