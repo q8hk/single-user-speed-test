@@ -8,6 +8,16 @@
 	<script type="text/javascript" src="speedtest.js"></script>
 	<script type="text/javascript" src="queue-client.js"></script>
 	<script type="text/javascript">
+		(function () {
+			"use strict";
+			var params = new URLSearchParams(window.location.search);
+			var design = params.get("design");
+			if (design !== "old" && design !== "classic") {
+				window.location.replace("index-modern.html" + window.location.search);
+			}
+		})();
+	</script>
+	<script type="text/javascript">
 		function I(i) { return document.getElementById(i); }
 
 		//LIST OF TEST SERVERS. Leave empty if you're doing a standalone installation. See documentation for details
