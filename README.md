@@ -7,7 +7,7 @@
 This build uses a server-side FIFO queue so only one browser can run a bandwidth
 test at a time. Waiting clients poll for their position, active clients renew a
 45-second lease, and abandoned leases expire automatically. After a test ends
-or its active lease expires, that client IP must wait five minutes before
+or its active lease expires, that client IP must wait two minutes before
 joining again.
 
 ![Screen recording of the single-user queue](screenshots/single-user-queue/single-user-queue.gif)
@@ -21,7 +21,7 @@ the `X-Speedtest-Queue-Token` header. They are not based on IP addresses or
 cookies and are not placed in request URLs. The backend stores no names, raw IP
 addresses, user agents, or speed-test results. Short-lived keyed hashes of
 client IP addresses are used only to enforce join rate limits and the
-five-minute cooldown.
+two-minute cooldown.
 
 Queue garbage collection runs during every queue transaction. Expired waiting
 entries, rate-limit windows, and cooldown records are removed automatically,

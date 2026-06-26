@@ -11,6 +11,7 @@ const READY = 1;
 const RUNNING = 2;
 const FINISHED = 3;
 const WAITING = 4;
+const COOLDOWN = 5;
 
 // Keep some global state here
 const testState = {
@@ -23,6 +24,7 @@ const testState = {
   telemetryEnabled: false,
   queue: null,
   queuePosition: null,
+  cooldownUntil: 0
 };
 
 // Bootstrap the application when the DOM is ready
@@ -39,11 +41,11 @@ window.addEventListener("DOMContentLoaded", async () => {
  */
 function createSpeedtest() {
   testState.speedtest = new Speedtest();
-  testState.speedtest.onupdate = (data) => {
+  testState.speedtest.onupdate = data => {
     testState.testData = data;
     testState.testDataDirty = true;
   };
-  testState.speedtest.onend = async (aborted) => {
+  testState.speedtest.onend = async aborted => {
     if (testState.queue) {
       await testState.queue.release();
       testState.queue = null;
@@ -58,29 +60,17 @@ function createSpeedtest() {
  * Make all the buttons respond to the right clicks
  */
 function hookUpButtons() {
-  document
-    .querySelector("#start-button")
-    .addEventListener("click", startButtonClickHandler);
+  document.querySelector("#start-button").addEventListener("click", startButtonClickHandler);
   document
     .querySelector("#choose-privacy")
-    .addEventListener("click", () =>
-      document.querySelector("#privacy").showModal()
-    );
+    .addEventListener("click", () => document.querySelector("#privacy").showModal());
   document
     .querySelector("#share-results")
-    .addEventListener("click", () =>
-      document.querySelector("#share").showModal()
-    );
-  document
-    .querySelector("#copy-link")
-    .addEventListener("click", copyLinkButtonClickHandler);
-  document
-    .querySelectorAll(".close-dialog, #close-privacy")
-    .forEach((element) => {
-      element.addEventListener("click", () =>
-        document.querySelectorAll("dialog").forEach((modal) => modal.close())
-      );
-    });
+    .addEventListener("click", () => document.querySelector("#share").showModal());
+  document.querySelector("#copy-link").addEventListener("click", copyLinkButtonClickHandler);
+  document.querySelectorAll(".close-dialog, #close-privacy").forEach(element => {
+    element.addEventListener("click", () => document.querySelectorAll("dialog").forEach(modal => modal.close()));
+  });
 }
 
 /**
@@ -102,6 +92,8 @@ async function startButtonClickHandler() {
       testState.speedtest.abort();
       // testState.state is updated by `onend` handler of speedtest
       return;
+    case COOLDOWN:
+      return;
     default:
       return;
   }
@@ -109,9 +101,7 @@ async function startButtonClickHandler() {
 
 function selectedQueueURL() {
   const server = testState.speedtest.getSelectedServer();
-  return server && server.server
-    ? joinServerUrl(server.server, "queue.php")
-    : "backend/queue.php";
+  return server && server.server ? joinServerUrl(server.server, "queue.php") : "backend/queue.php";
 }
 
 function joinServerUrl(server, path) {
@@ -126,7 +116,7 @@ function joinServerUrl(server, path) {
 async function joinQueueAndStart() {
   testState.state = WAITING;
   testState.queuePosition = null;
-  const queue = new SpeedtestQueueClient(selectedQueueURL(), (status) => {
+  const queue = new SpeedtestQueueClient(selectedQueueURL(), status => {
     testState.queuePosition = status.position || null;
   });
   testState.queue = queue;
@@ -143,11 +133,30 @@ async function joinQueueAndStart() {
     if (testState.queue === queue) {
       testState.queue = null;
       testState.queuePosition = null;
-      testState.state = READY;
       console.error("Failed to enter speed test queue:", error);
-      alert(error.message || "The speed test queue is currently unavailable.");
+      if (error.status === 429 && error.retryAfter) {
+        startCooldown(error.retryAfter);
+      } else {
+        testState.state = READY;
+      }
     }
   }
+}
+
+function startCooldown(seconds) {
+  const cooldownSeconds = Math.max(1, Math.ceil(Number(seconds) || 0));
+  testState.cooldownUntil = Date.now() + cooldownSeconds * 1000;
+  testState.state = COOLDOWN;
+}
+
+function cooldownSecondsRemaining() {
+  return Math.max(0, Math.ceil((testState.cooldownUntil - Date.now()) / 1000));
+}
+
+function formatCountdown(seconds) {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
 }
 
 /**
@@ -199,12 +208,10 @@ async function applySettingsJSON() {
 async function applyServerListJSON() {
   try {
     const serverSource =
-      typeof globalThis.SPEEDTEST_SERVERS !== "undefined"
-        ? globalThis.SPEEDTEST_SERVERS
-        : "server-list.json";
+      typeof globalThis.SPEEDTEST_SERVERS !== "undefined" ? globalThis.SPEEDTEST_SERVERS : "server-list.json";
     const servers = Array.isArray(serverSource)
       ? serverSource
-      : await fetch(serverSource).then((response) => response.json());
+      : await fetch(serverSource).then(response => response.json());
     if (!servers || !Array.isArray(servers) || servers.length === 0) {
       console.error("Server list is empty or malformed");
       useLocalServer();
@@ -223,8 +230,8 @@ async function applyServerListJSON() {
     // and annotates them with pingT). Only then populate the dropdown so that
     // dead servers don't appear.
     testState.speedtest.addTestPoints(servers);
-    testState.speedtest.selectServer((bestServer) => {
-      const aliveServers = testState.servers.filter((s) => {
+    testState.speedtest.selectServer(bestServer => {
+      const aliveServers = testState.servers.filter(s => {
         // Keep servers that responded to ping (pingT !== -1).
         if (s.pingT !== -1) return true;
         // Also keep protocol-relative servers ("//...") as a defensive fallback.
@@ -239,7 +246,6 @@ async function applyServerListJSON() {
         testState.servers = aliveServers;
       }
       populateDropdown(testState.servers);
-
 
       if (bestServer) {
         selectServer(bestServer);
@@ -266,8 +272,8 @@ function useLocalServer() {
       getIpURL: "getIP.php",
       sponsorName: "",
       sponsorURL: "",
-      id: 1,
-    },
+      id: 1
+    }
   ];
   populateDropdown(testState.servers);
 }
@@ -302,16 +308,15 @@ function populateDropdown(servers) {
     serverSelector.addEventListener("click", () => {
       serverList.classList.toggle("active");
     });
-    document.addEventListener("click", (e) => {
-      if (e.target.closest("div.server-selector") !== serverSelector)
-        serverList.classList.remove("active");
+    document.addEventListener("click", e => {
+      if (e.target.closest("div.server-selector") !== serverSelector) serverList.classList.remove("active");
     });
   }
 
   // Sort servers by country, then by city within the same country.
   // Name formats: "City, Country", "City, Country (qualifier)", "City, Country, Provider", "Country"
-  const parseServerName = (name) => {
-    const parts = (name || "").split(",").map((s) => s.trim());
+  const parseServerName = name => {
+    const parts = (name || "").split(",").map(s => s.trim());
     let country, city;
     if (parts.length >= 3) {
       // "City, Country, Provider" — use second part as country
@@ -335,13 +340,11 @@ function populateDropdown(servers) {
   });
 
   // Populate the list to choose from
-  sorted.forEach((server) => {
+  sorted.forEach(server => {
     const item = document.createElement("li");
     const link = document.createElement("a");
     link.href = "#";
-    link.innerHTML = `${server.name}${
-      server.sponsorName ? ` <span>(${server.sponsorName})</span>` : ""
-    }`;
+    link.innerHTML = `${server.name}${server.sponsorName ? ` <span>(${server.sponsorName})</span>` : ""}`;
     link.addEventListener("click", () => selectServer(server));
     item.appendChild(link);
     serverList.appendChild(item);
@@ -390,6 +393,7 @@ function startRenderingLoop() {
     [RUNNING]: "Abort",
     [FINISHED]: "Restart",
     [WAITING]: "Cancel wait",
+    [COOLDOWN]: ""
   };
 
   // Show copy link button only if navigator.clipboard is available
@@ -397,19 +401,19 @@ function startRenderingLoop() {
 
   function renderUI() {
     // Make the main button reflect the current state
-    startButton.textContent =
-      testState.state === WAITING && testState.queuePosition
-        ? `Waiting: #${testState.queuePosition} (cancel)`
-        : buttonTexts[testState.state];
-    startButton.classList.toggle("disabled", testState.state === INITIALIZING);
+    const cooldownRemaining = cooldownSecondsRemaining();
+    if (testState.state === COOLDOWN && cooldownRemaining <= 0) {
+      testState.cooldownUntil = 0;
+      testState.state = READY;
+    }
+    startButton.textContent = buttonText(cooldownRemaining);
+    startButton.classList.toggle("disabled", testState.state === INITIALIZING || testState.state === COOLDOWN);
     startButton.classList.toggle("active", testState.state === RUNNING);
     startButton.classList.toggle("waiting", testState.state === WAITING);
+    startButton.classList.toggle("cooldown", testState.state === COOLDOWN);
 
     // Disable the server selector while test is running
-    serverSelector.classList.toggle(
-      "disabled",
-      testState.state === RUNNING || testState.state === WAITING
-    );
+    serverSelector.classList.toggle("disabled", testState.state === RUNNING || testState.state === WAITING);
 
     // Show selected server
     if (testState.selectedServerDirty) {
@@ -428,43 +432,26 @@ function startRenderingLoop() {
     }
 
     // Activate the gauges when test running or finished
-    gauges.forEach((e) =>
-      e.classList.toggle(
-        "enabled",
-        testState.state === RUNNING || testState.state === FINISHED
-      )
-    );
+    gauges.forEach(e => e.classList.toggle("enabled", testState.state === RUNNING || testState.state === FINISHED));
 
     // Show ping and jitter if data is available
-    pingAndJitter.forEach((e) =>
+    pingAndJitter.forEach(e =>
       e.classList.toggle(
         "hidden",
-        !(
-          testState.testData &&
-          testState.testData.pingStatus &&
-          testState.testData.jitterStatus
-        )
+        !(testState.testData && testState.testData.pingStatus && testState.testData.jitterStatus)
       )
     );
 
     // Show share button after test if server supports it
     shareResults.classList.toggle(
       "hidden",
-      !(
-        testState.state === FINISHED &&
-        testState.telemetryEnabled &&
-        testState.testData.testId
-      )
+      !(testState.state === FINISHED && testState.telemetryEnabled && testState.testData.testId)
     );
 
     if (testState.testDataDirty) {
       // Set gauge rotations
-      downloadProgress.style = `--progress-rotation: ${
-        testState.testData.dlProgress * 180
-      }deg`;
-      uploadProgress.style = `--progress-rotation: ${
-        testState.testData.ulProgress * 180
-      }deg`;
+      downloadProgress.style = `--progress-rotation: ${testState.testData.dlProgress * 180}deg`;
+      uploadProgress.style = `--progress-rotation: ${testState.testData.ulProgress * 180}deg`;
       downloadGauge.style = `--speed-rotation: ${mbpsToRotation(
         testState.testData.dlStatus,
         testState.testData.testState === 1
@@ -483,27 +470,24 @@ function startRenderingLoop() {
       // Set user's IP and provider
       if (testState.testData.clientIp) {
         // Clear previous content
-        privacyWarning.innerHTML = '';
+        privacyWarning.innerHTML = "";
 
-        const connectedThrough = document.createElement('span');
-        connectedThrough.textContent = 'You are connected through:';
-  
+        const connectedThrough = document.createElement("span");
+        connectedThrough.textContent = "You are connected through:";
+
         const ipAddress = document.createTextNode(testState.testData.clientIp);
 
         privacyWarning.appendChild(connectedThrough);
-        privacyWarning.appendChild(document.createElement('br'));
+        privacyWarning.appendChild(document.createElement("br"));
         privacyWarning.appendChild(ipAddress);
-  
+
         privacyWarning.classList.remove("hidden");
       }
 
       // Set image for sharing results
       if (testState.testData.testId) {
         resultsImage.src =
-          window.location.href.substring(
-            0,
-            window.location.href.lastIndexOf("/")
-          ) +
+          window.location.href.substring(0, window.location.href.lastIndexOf("/")) +
           "/results/?id=" +
           testState.testData.testId;
       }
@@ -515,6 +499,16 @@ function startRenderingLoop() {
   }
 
   renderUI();
+
+  function buttonText(cooldownRemaining) {
+    if (testState.state === WAITING && testState.queuePosition) {
+      return `Waiting: #${testState.queuePosition} (cancel)`;
+    }
+    if (testState.state === COOLDOWN) {
+      return `Try again in ${formatCountdown(cooldownRemaining)}`;
+    }
+    return buttonTexts[testState.state];
+  }
 }
 
 /**

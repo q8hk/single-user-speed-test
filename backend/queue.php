@@ -22,7 +22,7 @@ try {
         if ($action === 'join') {
             $clientKey = speedtest_queue_client_key($state);
             if (!speedtest_queue_cooldown_allows_join($state, $clientKey, $now)) {
-                return ['error' => 'Please wait five minutes before running another speed test'];
+                return ['error' => 'Please wait two minutes before running another speed test'];
             }
             if (speedtest_queue_client_is_waiting($state, $clientKey)) {
                 http_response_code(409);
