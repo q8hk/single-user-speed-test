@@ -141,6 +141,11 @@ function speedtest_queue_collect_garbage(&$state, $now)
                 && ($entry['windowStartedAt'] ?? 0) + SPEEDTEST_QUEUE_RATE_WINDOW > $now;
         }
     );
+    foreach ($state['cooldowns'] as $clientKey => $expiresAt) {
+        if (is_numeric($expiresAt) && (int) $expiresAt > $now + SPEEDTEST_QUEUE_COOLDOWN_SECONDS) {
+            $state['cooldowns'][$clientKey] = $now + SPEEDTEST_QUEUE_COOLDOWN_SECONDS;
+        }
+    }
     $state['cooldowns'] = array_filter(
         is_array($state['cooldowns']) ? $state['cooldowns'] : [],
         function ($expiresAt) use ($now) {
