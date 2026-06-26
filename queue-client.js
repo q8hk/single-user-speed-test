@@ -19,7 +19,12 @@
       body: JSON.stringify({ action: action, token: this.token }),
     });
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "Queue request failed");
+    if (!response.ok) {
+      const error = new Error(data.error || "Queue request failed");
+      error.status = response.status;
+      error.retryAfter = Number(response.headers.get("Retry-After")) || null;
+      throw error;
+    }
     if (data.token) this.token = data.token;
     return data;
   };

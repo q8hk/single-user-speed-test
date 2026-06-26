@@ -136,7 +136,7 @@ async function joinQueueAndStart() {
       testState.queuePosition = null;
       testState.state = READY;
       console.error("Failed to enter speed test queue:", error);
-      alert("The speed test queue is currently unavailable. Please try again.");
+      alert(error.message || "The speed test queue is currently unavailable.");
     }
   }
 }
@@ -374,6 +374,7 @@ function startRenderingLoop() {
         : buttonTexts[testState.state];
     startButton.classList.toggle("disabled", testState.state === INITIALIZING);
     startButton.classList.toggle("active", testState.state === RUNNING);
+    startButton.classList.toggle("waiting", testState.state === WAITING);
 
     // Disable the server selector while test is running
     serverSelector.classList.toggle(

@@ -6,6 +6,8 @@ const SPEEDTEST_QUEUE_WAITING_TTL = 30;
 const SPEEDTEST_QUEUE_MAX_WAITING = 100;
 const SPEEDTEST_QUEUE_RATE_WINDOW = 60;
 const SPEEDTEST_QUEUE_MAX_JOINS_PER_WINDOW = 5;
+const SPEEDTEST_QUEUE_COOLDOWN_SECONDS = 300;
+const SPEEDTEST_QUEUE_MAX_TRACKED_CLIENTS = 5000;
 const SPEEDTEST_QUEUE_TOKEN_HEADER = 'HTTP_X_SPEEDTEST_QUEUE_TOKEN';
 
 function speedtest_queue_state_file()
@@ -50,39 +52,28 @@ function speedtest_queue_with_lock($callback)
     try {
         rewind($handle);
         $raw = stream_get_contents($handle);
-        $state = json_decode($raw ?: '', true);
-        if (!is_array($state)) {
-            $state = [];
+        $decoded = json_decode($raw ?: '', true);
+        if (!is_array($decoded)) {
+            $decoded = [];
         }
-        $state += ['active' => null, 'waiting' => [], 'rateLimits' => [], 'secret' => null];
+        // Keep only recognized fields so malformed or obsolete data cannot
+        // accumulate indefinitely in the state file.
+        $state = [
+            'active' => is_array($decoded['active'] ?? null) ? $decoded['active'] : null,
+            'waiting' => is_array($decoded['waiting'] ?? null) ? $decoded['waiting'] : [],
+            'rateLimits' => is_array($decoded['rateLimits'] ?? null) ? $decoded['rateLimits'] : [],
+            'cooldowns' => is_array($decoded['cooldowns'] ?? null) ? $decoded['cooldowns'] : [],
+            'secret' => is_string($decoded['secret'] ?? null) ? $decoded['secret'] : null,
+        ];
         if (!is_string($state['secret']) || strlen($state['secret']) < 32) {
             $state['secret'] = bin2hex(random_bytes(32));
         }
 
         $now = time();
-        if (
-            !empty($state['active'])
-            && (
-                ($state['active']['expiresAt'] ?? 0) <= $now
-                || ($state['active']['maxExpiresAt'] ?? 0) <= $now
-            )
-        ) {
-            $state['active'] = null;
-        }
-        $state['waiting'] = array_values(array_filter(
-            $state['waiting'],
-            function ($entry) use ($now) {
-                return ($entry['expiresAt'] ?? 0) > $now;
-            }
-        ));
-        $state['rateLimits'] = array_filter(
-            $state['rateLimits'],
-            function ($entry) use ($now) {
-                return ($entry['windowStartedAt'] ?? 0) + SPEEDTEST_QUEUE_RATE_WINDOW > $now;
-            }
-        );
+        speedtest_queue_collect_garbage($state, $now);
 
         $result = $callback($state, $now);
+        speedtest_queue_collect_garbage($state, $now);
 
         rewind($handle);
         ftruncate($handle, 0);
@@ -98,12 +89,88 @@ function speedtest_queue_with_lock($callback)
     }
 }
 
+function speedtest_queue_apply_cooldown(&$state, $clientKey, $now)
+{
+    if (is_string($clientKey) && $clientKey !== '') {
+        $state['cooldowns'][$clientKey] = $now + SPEEDTEST_QUEUE_COOLDOWN_SECONDS;
+    }
+}
+
+function speedtest_queue_trim_map(&$entries, $timestampField)
+{
+    if (count($entries) <= SPEEDTEST_QUEUE_MAX_TRACKED_CLIENTS) {
+        return;
+    }
+    uasort($entries, function ($left, $right) use ($timestampField) {
+        return ($right[$timestampField] ?? 0) <=> ($left[$timestampField] ?? 0);
+    });
+    $entries = array_slice($entries, 0, SPEEDTEST_QUEUE_MAX_TRACKED_CLIENTS, true);
+}
+
+function speedtest_queue_collect_garbage(&$state, $now)
+{
+    if (
+        !empty($state['active'])
+        && !preg_match('/^[a-f0-9]{48}$/', (string) ($state['active']['token'] ?? ''))
+    ) {
+        $state['active'] = null;
+    }
+    if (
+        !empty($state['active'])
+        && (
+            ($state['active']['expiresAt'] ?? 0) <= $now
+            || ($state['active']['maxExpiresAt'] ?? 0) <= $now
+        )
+    ) {
+        speedtest_queue_apply_cooldown($state, $state['active']['clientKey'] ?? '', $now);
+        $state['active'] = null;
+    }
+
+    $state['waiting'] = array_values(array_filter(
+        is_array($state['waiting']) ? $state['waiting'] : [],
+        function ($entry) use ($now) {
+            return is_array($entry)
+                && preg_match('/^[a-f0-9]{48}$/', (string) ($entry['token'] ?? ''))
+                && ($entry['expiresAt'] ?? 0) > $now;
+        }
+    ));
+    $state['rateLimits'] = array_filter(
+        is_array($state['rateLimits']) ? $state['rateLimits'] : [],
+        function ($entry) use ($now) {
+            return is_array($entry)
+                && ($entry['windowStartedAt'] ?? 0) + SPEEDTEST_QUEUE_RATE_WINDOW > $now;
+        }
+    );
+    $state['cooldowns'] = array_filter(
+        is_array($state['cooldowns']) ? $state['cooldowns'] : [],
+        function ($expiresAt) use ($now) {
+            return is_numeric($expiresAt) && (int) $expiresAt > $now;
+        }
+    );
+
+    speedtest_queue_trim_map($state['rateLimits'], 'windowStartedAt');
+    if (count($state['cooldowns']) > SPEEDTEST_QUEUE_MAX_TRACKED_CLIENTS) {
+        arsort($state['cooldowns'], SORT_NUMERIC);
+        $state['cooldowns'] = array_slice(
+            $state['cooldowns'],
+            0,
+            SPEEDTEST_QUEUE_MAX_TRACKED_CLIENTS,
+            true
+        );
+    }
+}
+
 function speedtest_queue_promote(&$state, $now)
 {
-    if (empty($state['active']) && !empty($state['waiting'])) {
+    while (empty($state['active']) && !empty($state['waiting'])) {
         $next = array_shift($state['waiting']);
+        $clientKey = $next['clientKey'] ?? '';
+        if (($state['cooldowns'][$clientKey] ?? 0) > $now) {
+            continue;
+        }
         $state['active'] = [
             'token' => $next['token'],
+            'clientKey' => $clientKey,
             'expiresAt' => $now + SPEEDTEST_QUEUE_ACTIVE_TTL,
             'maxExpiresAt' => $now + SPEEDTEST_QUEUE_ACTIVE_MAX_SECONDS,
         ];
@@ -132,6 +199,34 @@ function speedtest_queue_rate_limit_join(&$state, $now)
     $entry['joins']++;
     $state['rateLimits'][$key] = $entry;
     return true;
+}
+
+function speedtest_queue_cooldown_allows_join($state, $clientKey, $now)
+{
+    $expiresAt = (int) ($state['cooldowns'][$clientKey] ?? 0);
+    if ($expiresAt <= $now) {
+        return true;
+    }
+    $retryAfter = max(1, $expiresAt - $now);
+    header('Retry-After: ' . $retryAfter);
+    http_response_code(429);
+    return false;
+}
+
+function speedtest_queue_client_is_present($state, $clientKey)
+{
+    if (
+        !empty($state['active'])
+        && hash_equals((string) ($state['active']['clientKey'] ?? ''), $clientKey)
+    ) {
+        return true;
+    }
+    foreach ($state['waiting'] as $entry) {
+        if (hash_equals((string) ($entry['clientKey'] ?? ''), $clientKey)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function speedtest_queue_allowed_origins()

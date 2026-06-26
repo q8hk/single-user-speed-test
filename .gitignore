@@ -3,6 +3,7 @@ backend/getIP_serverLocation.php
 db-dir/
 .vscode/
 node_modules/
+.tmp/
 package-lock.json
 playwright-report/
 test-results/
