@@ -61,7 +61,7 @@ Works with mobile versions too.
 * Multiple Points of Test (optional)
 * Connection stability test with latency charting, loss tracking, threshold alerts, and CSV export
 
-![Screenrecording of a running Speedtest](https://speedtest.fdossena.com/mpot_v7.gif)
+![Screenrecording of the single-user queue](screenshots/single-user-queue/single-user-queue.gif)
 
 ## Server requirements
 
