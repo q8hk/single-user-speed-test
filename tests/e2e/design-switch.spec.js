@@ -9,6 +9,18 @@ test.describe('Design switch behavior', () => {
     await expect(classicStartButton(page)).toBeVisible();
   });
 
+  test('index.html defaults to modern on mobile when useNewDesign=false', async ({ browser }) => {
+    const context = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      isMobile: true,
+    });
+    const page = await context.newPage();
+    await page.goto(`${baseUrls.standalone}/index.html`);
+    await expect(page).toHaveURL(/index-modern\.html/);
+    await expect(modernStartButton(page)).toBeVisible();
+    await context.close();
+  });
+
   test('index.html defaults to modern when useNewDesign=true', async ({ page }) => {
     await page.goto(`${baseUrls.standaloneNew}/index.html`);
     await expect(page).toHaveURL(/index-modern\.html/);

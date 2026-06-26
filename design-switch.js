@@ -5,7 +5,7 @@
  * 1. URL parameter: ?design=new or ?design=old
  * 2. Configuration file: config.json with useNewDesign flag
  * 
- * Default behavior: Shows the old design
+ * Default behavior: Shows the old design on desktop and the modern design on mobile
  * 
  * Note: This script is only loaded on the root index.html
  */
@@ -33,6 +33,8 @@
         return;
     }
 
+    const useMobileDefault = isMobileViewport();
+
     // Check config.json for design preference
     try {
         const xhr = new XMLHttpRequest();
@@ -45,17 +47,18 @@
             const config = JSON.parse(xhr.responseText);
             if (config.useNewDesign === true) {
                 redirectToNewDesign();
+            } else if (useMobileDefault) {
+                redirectToNewDesign();
             } else {
                 redirectToOldDesign();
             }
         } else {
-            // Config not found or error - default to old design
-            redirectToOldDesign();
+            redirectToDefaultDesign();
         }
     } catch (error) {
-        // If there's any error (e.g., network, JSON parse), default to old design
-        console.log('Using default (old) design:', error.message || 'config error');
-        redirectToOldDesign();
+        // If there's any error (e.g., network, JSON parse), use the device default
+        console.log('Using default design:', error.message || 'config error');
+        redirectToDefaultDesign();
     }
 
     function redirectToNewDesign() {
@@ -68,5 +71,17 @@
         // Preserve any URL parameters when redirecting
         const currentParams = window.location.search;
         window.location.href = 'index-classic.html' + currentParams;
+    }
+
+    function redirectToDefaultDesign() {
+        if (useMobileDefault) {
+            redirectToNewDesign();
+        } else {
+            redirectToOldDesign();
+        }
+    }
+
+    function isMobileViewport() {
+        return window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
     }
 })();

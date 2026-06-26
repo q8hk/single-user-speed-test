@@ -110,8 +110,17 @@ async function startButtonClickHandler() {
 function selectedQueueURL() {
   const server = testState.speedtest.getSelectedServer();
   return server && server.server
-    ? new URL("queue.php", server.server).toString()
+    ? joinServerUrl(server.server, "queue.php")
     : "backend/queue.php";
+}
+
+function joinServerUrl(server, path) {
+  if (!server) return path;
+  if (!path) return server;
+  if (server.charAt(server.length - 1) === "/" || path.charAt(0) === "/") {
+    return server + path;
+  }
+  return server + "/" + path;
 }
 
 async function joinQueueAndStart() {

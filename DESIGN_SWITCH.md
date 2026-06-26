@@ -4,7 +4,7 @@ LibreSpeed now supports switching between the classic design and the new modern 
 
 ## Default Behavior
 
-By default, LibreSpeed uses the **classic design** (located in `index-classic.html`).
+By default, LibreSpeed uses the **classic design** (located in `index-classic.html`) on desktop and the **modern design** (located in `index-modern.html`) on mobile viewports.
 
 ## Architecture
 
