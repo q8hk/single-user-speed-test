@@ -74,7 +74,7 @@ footer {
     transition: text-underline-offset 0.2s;
 
     &:hover {
-      color: var(--theme-pink);
+      color: var(--theme-blue);
       text-underline-offset: 0.5rem;
     }
   }

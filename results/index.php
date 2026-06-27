@@ -72,6 +72,157 @@ function formatSpeedtestDataForImage($speedtest)
     return $speedtest;
 }
 
+function colorHex($im, $hex, $alpha = 0)
+{
+    $hex = ltrim($hex, '#');
+
+    return imagecolorallocatealpha($im, hexdec(substr($hex, 0, 2)), hexdec(substr($hex, 2, 2)), hexdec(substr($hex, 4, 2)), $alpha);
+}
+
+function loadImageResource($path)
+{
+    if (!is_file($path)) {
+        return null;
+    }
+
+    $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+    if ($extension === 'png') {
+        return imagecreatefrompng($path);
+    }
+    if ($extension === 'jpg' || $extension === 'jpeg') {
+        return imagecreatefromjpeg($path);
+    }
+
+    return null;
+}
+
+function centerText($im, $text, $font, $size, $centerX, $baselineY, $color)
+{
+    $bbox = imageftbbox($size, 0, $font, $text);
+    $width = $bbox[2] - $bbox[0];
+    imagefttext($im, $size, 0, $centerX - $width / 2, $baselineY, $color, $font, $text);
+}
+
+function filledRoundedRectangle($im, $x1, $y1, $x2, $y2, $radius, $color)
+{
+    imagefilledrectangle($im, $x1 + $radius, $y1, $x2 - $radius, $y2, $color);
+    imagefilledrectangle($im, $x1, $y1 + $radius, $x2, $y2 - $radius, $color);
+    imagefilledellipse($im, $x1 + $radius, $y1 + $radius, $radius * 2, $radius * 2, $color);
+    imagefilledellipse($im, $x2 - $radius, $y1 + $radius, $radius * 2, $radius * 2, $color);
+    imagefilledellipse($im, $x1 + $radius, $y2 - $radius, $radius * 2, $radius * 2, $color);
+    imagefilledellipse($im, $x2 - $radius, $y2 - $radius, $radius * 2, $radius * 2, $color);
+}
+
+function findBrandLogoPaths()
+{
+    return [
+        __DIR__.'/../branding/logo.svg',
+        __DIR__.'/../branding/logo.png',
+        __DIR__.'/../frontend/branding/logo.svg',
+        __DIR__.'/../frontend/branding/logo.png',
+        __DIR__.'/../images/logo.png',
+    ];
+}
+
+function loadSvgImageResource($path)
+{
+    if (!class_exists('Imagick')) {
+        return null;
+    }
+
+    try {
+        $svg = new Imagick();
+        $svg->setBackgroundColor(new ImagickPixel('transparent'));
+        $svg->readImage($path);
+        $svg->setImageFormat('png32');
+        $image = imagecreatefromstring($svg->getImagesBlob());
+        $svg->clear();
+        $svg->destroy();
+
+        return $image;
+    } catch (Exception $e) {
+        return null;
+    }
+}
+
+function loadBrandLogoResource()
+{
+    foreach (findBrandLogoPaths() as $candidate) {
+        if (!is_file($candidate)) {
+            continue;
+        }
+
+        $extension = strtolower(pathinfo($candidate, PATHINFO_EXTENSION));
+        if ($extension === 'svg') {
+            $logo = loadSvgImageResource($candidate);
+        } else {
+            $logo = loadImageResource($candidate);
+        }
+
+        if ($logo) {
+            return $logo;
+        }
+    }
+
+    return null;
+}
+
+function findShareBackground()
+{
+    $candidates = [
+        __DIR__.'/../images/background.jpeg',
+        __DIR__.'/../frontend/images/background.jpeg',
+    ];
+
+    foreach ($candidates as $candidate) {
+        if (is_file($candidate)) {
+            return $candidate;
+        }
+    }
+
+    return null;
+}
+
+function drawBrand($im, $font, $white, $cyan, $blue)
+{
+    $logoIm = loadBrandLogoResource();
+    if ($logoIm) {
+        $srcW = imagesx($logoIm);
+        $srcH = imagesy($logoIm);
+        $targetH = 46;
+        $targetW = min(280, (int) round($srcW * $targetH / max(1, $srcH)));
+        imagecopyresampled($im, $logoIm, 58, 48, 0, 0, $targetW, $targetH, $srcW, $srcH);
+        imagedestroy($logoIm);
+
+        return;
+    }
+
+    imagefttext($im, 24, 0, 58, 78, $white, $font, 'LIBRE');
+    filledRoundedRectangle($im, 168, 53, 204, 81, 4, $white);
+    imagefilledpolygon($im, [197, 57, 180, 68, 190, 69, 175, 78, 183, 67, 174, 66], 6, $blue);
+    imagefilledpolygon($im, [194, 59, 181, 68, 190, 69, 177, 77, 188, 67, 178, 66], 6, $cyan);
+    imagefttext($im, 24, 0, 214, 78, $white, $font, 'SPEED');
+}
+
+function drawGauge($im, $cx, $cy, $diameter, $thickness, $track, $accent, $highlight, $value, $label, $fontLight, $fontBold, $white, $muted)
+{
+    imagesetthickness($im, $thickness);
+    imagearc($im, $cx, $cy, $diameter, $diameter, 180, 360, $track);
+    imagearc($im, $cx, $cy, $diameter, $diameter, 180, 318, $accent);
+    imagesetthickness($im, max(3, (int) ($thickness * 0.35)));
+    imagearc($im, $cx, $cy, $diameter + $thickness, $diameter + $thickness, 300, 360, $highlight);
+    imagesetthickness($im, 1);
+
+    $pointerAngle = deg2rad(318);
+    $pointerX = $cx + cos($pointerAngle) * ($diameter / 2);
+    $pointerY = $cy + sin($pointerAngle) * ($diameter / 2);
+    imagefilledpolygon($im, [$pointerX, $pointerY, $pointerX - 22, $pointerY + 34, $pointerX + 18, $pointerY + 22], 3, $white);
+
+    centerText($im, $value, $fontLight, 62, $cx, $cy + 10, $white);
+    centerText($im, 'Mbps', $fontLight, 22, $cx, $cy + 50, $muted);
+    centerText($im, strtoupper($label), $fontBold, 24, $cx, $cy + 112, $muted);
+}
+
 /**
  * @param array $speedtest
  *
@@ -79,7 +230,6 @@ function formatSpeedtestDataForImage($speedtest)
  */
 function drawImage($speedtest)
 {
-    // format values for the image
     $data = formatSpeedtestDataForImage($speedtest);
     $dl = $data['dl'];
     $ul = $data['ul'];
@@ -88,130 +238,55 @@ function drawImage($speedtest)
     $ispinfo = $data['ispinfo'];
     $timestamp = $data['timestamp'];
 
-    // initialize the image
-    $SCALE = 1.25;
-    $SMALL_SEP = 8 * $SCALE;
-    $WIDTH = 400 * $SCALE;
-    $HEIGHT = 229 * $SCALE;
+    $WIDTH = 1200;
+    $HEIGHT = 675;
     $im = imagecreatetruecolor($WIDTH, $HEIGHT);
-    $BACKGROUND_COLOR = imagecolorallocate($im, 255, 255, 255);
+    imagealphablending($im, true);
+    imagesavealpha($im, true);
 
-    // configure fonts
-    $FONT_LABEL = tryFont('OpenSans-Semibold');
-    $FONT_LABEL_SIZE = 14 * $SCALE;
-    $FONT_LABEL_SIZE_BIG = 16 * $SCALE;
+    $FONT_BOLD = tryFont('OpenSans-Semibold');
+    $FONT_LIGHT = tryFont('OpenSans-Light');
 
-    $FONT_METER = tryFont('OpenSans-Light');
-    $FONT_METER_SIZE = 20 * $SCALE;
-    $FONT_METER_SIZE_BIG = 22 * $SCALE;
+    $BACKGROUND = colorHex($im, '0e0720');
+    $PANEL = colorHex($im, '251b32', 16);
+    $PANEL_BORDER = colorHex($im, '625b6b', 36);
+    $WHITE = colorHex($im, 'ffffff');
+    $MUTED = colorHex($im, '898591');
+    $CYAN = colorHex($im, '00c6df');
+    $BLUE = colorHex($im, '023ec3');
+    $TRACK = colorHex($im, '3e2f50');
 
-    $FONT_MEASURE = tryFont('OpenSans-Semibold');
-    $FONT_MEASURE_SIZE = 12 * $SCALE;
-    $FONT_MEASURE_SIZE_BIG = 12 * $SCALE;
+    $backgroundPath = findShareBackground();
+    $background = $backgroundPath ? loadImageResource($backgroundPath) : null;
+    if ($background) {
+        imagecopyresampled($im, $background, 0, 0, 0, 0, $WIDTH, $HEIGHT, imagesx($background), imagesy($background));
+        imagedestroy($background);
+    } else {
+        imagefilledrectangle($im, 0, 0, $WIDTH, $HEIGHT, $BACKGROUND);
+    }
+    imagefilledrectangle($im, 0, 0, $WIDTH, $HEIGHT, colorHex($im, '0e0720', 22));
+    imagefilledrectangle($im, 0, 0, $WIDTH, $HEIGHT, colorHex($im, '291a46', 48));
 
-    $FONT_ISP = tryFont('OpenSans-Semibold');
-    $FONT_ISP_SIZE = 9 * $SCALE;
+    filledRoundedRectangle($im, 40, 34, 1160, 632, 22, $PANEL);
+    imagerectangle($im, 40, 34, 1160, 632, $PANEL_BORDER);
 
-    $FONT_TIMESTAMP = tryFont("OpenSans-Light");
-    $FONT_TIMESTAMP_SIZE = 8 * $SCALE;
+    drawBrand($im, $FONT_BOLD, $WHITE, $CYAN, $BLUE);
+    imagefttext($im, 22, 0, 58, 126, $CYAN, $FONT_LIGHT, 'Speed test result');
+    imagefttext($im, 18, 0, 880, 78, $MUTED, $FONT_LIGHT, $timestamp);
 
-    $FONT_WATERMARK = tryFont('OpenSans-Light');
-    $FONT_WATERMARK_SIZE = 8 * $SCALE;
+    drawGauge($im, 360, 352, 372, 32, $TRACK, $BLUE, $CYAN, $dl, 'Download', $FONT_LIGHT, $FONT_BOLD, $WHITE, $MUTED);
+    drawGauge($im, 840, 352, 372, 32, $TRACK, $CYAN, $BLUE, $ul, 'Upload', $FONT_LIGHT, $FONT_BOLD, $WHITE, $MUTED);
 
-    // configure text colors
-    $TEXT_COLOR_LABEL = imagecolorallocate($im, 40, 40, 40);
-    $TEXT_COLOR_PING_METER = imagecolorallocate($im, 170, 96, 96);
-    $TEXT_COLOR_JIT_METER = imagecolorallocate($im, 170, 96, 96);
-    $TEXT_COLOR_DL_METER = imagecolorallocate($im, 96, 96, 170);
-    $TEXT_COLOR_UL_METER = imagecolorallocate($im, 96, 96, 96);
-    $TEXT_COLOR_MEASURE = imagecolorallocate($im, 40, 40, 40);
-    $TEXT_COLOR_ISP = imagecolorallocate($im, 40, 40, 40);
-    $SEPARATOR_COLOR = imagecolorallocate($im, 192, 192, 192);
-    $TEXT_COLOR_TIMESTAMP = imagecolorallocate($im, 160, 160, 160);
-    $TEXT_COLOR_WATERMARK = imagecolorallocate($im, 160, 160, 160);
+    imagefttext($im, 20, 0, 142, 548, $MUTED, $FONT_BOLD, 'Ping:');
+    imagefttext($im, 20, 0, 208, 548, $WHITE, $FONT_LIGHT, $ping.' ms');
+    imagefttext($im, 20, 0, 910, 548, $MUTED, $FONT_BOLD, 'Jitter:');
+    imagefttext($im, 20, 0, 995, 548, $WHITE, $FONT_LIGHT, $jit.' ms');
 
-    // configure positioning or the different parts on the image
-    $POSITION_X_PING = 125 * $SCALE;
-    $POSITION_Y_PING_LABEL = 24 * $SCALE;
-    $POSITION_Y_PING_METER = 60 * $SCALE;
-    $POSITION_Y_PING_MEASURE = 60 * $SCALE;
+    imagefilledrectangle($im, 58, 580, 1142, 581, colorHex($im, '625b6b', 42));
+    $serverText = trim($ispinfo) === '' ? 'Server: LibreSpeed' : 'Server: '.$ispinfo;
+    imagefttext($im, 18, 0, 58, 612, $MUTED, $FONT_LIGHT, $serverText);
+    imagefttext($im, 18, 0, 930, 612, $CYAN, $FONT_BOLD, 'LibreSpeed');
 
-    $POSITION_X_JIT = 275 * $SCALE;
-    $POSITION_Y_JIT_LABEL = 24 * $SCALE;
-    $POSITION_Y_JIT_METER = 60 * $SCALE;
-    $POSITION_Y_JIT_MEASURE = 60 * $SCALE;
-
-    $POSITION_X_DL = 120 * $SCALE;
-    $POSITION_Y_DL_LABEL = 105 * $SCALE;
-    $POSITION_Y_DL_METER = 143 * $SCALE;
-    $POSITION_Y_DL_MEASURE = 169 * $SCALE;
-
-    $POSITION_X_UL = 280 * $SCALE;
-    $POSITION_Y_UL_LABEL = 105 * $SCALE;
-    $POSITION_Y_UL_METER = 143 * $SCALE;
-    $POSITION_Y_UL_MEASURE = 169 * $SCALE;
-
-    $POSITION_X_ISP = 4 * $SCALE;
-    $POSITION_Y_ISP = 205 * $SCALE;
-
-    $SEPARATOR_Y = 211 * $SCALE;
-
-    $POSITION_X_TIMESTAMP= 4 * $SCALE;
-    $POSITION_Y_TIMESTAMP = 223 * $SCALE;
-
-    $POSITION_Y_WATERMARK = 223 * $SCALE;
-
-    // configure labels
-    $MBPS_TEXT = 'Mbit/s';
-    $MS_TEXT = 'ms';
-    $PING_TEXT = 'Ping';
-    $JIT_TEXT = 'Jitter';
-    $DL_TEXT = 'Download';
-    $UL_TEXT = 'Upload';
-    $WATERMARK_TEXT = 'LibreSpeed';
-
-    // create text boxes for each part of the image
-    $mbpsBbox = imageftbbox($FONT_MEASURE_SIZE_BIG, 0, $FONT_MEASURE, $MBPS_TEXT);
-    $msBbox = imageftbbox($FONT_MEASURE_SIZE, 0, $FONT_MEASURE, $MS_TEXT);
-    $pingBbox = imageftbbox($FONT_LABEL_SIZE, 0, $FONT_LABEL, $PING_TEXT);
-    $pingMeterBbox = imageftbbox($FONT_METER_SIZE, 0, $FONT_METER, $ping);
-    $jitBbox = imageftbbox($FONT_LABEL_SIZE, 0, $FONT_LABEL, $JIT_TEXT);
-    $jitMeterBbox = imageftbbox($FONT_METER_SIZE, 0, $FONT_METER, $jit);
-    $dlBbox = imageftbbox($FONT_LABEL_SIZE_BIG, 0, $FONT_LABEL, $DL_TEXT);
-    $dlMeterBbox = imageftbbox($FONT_METER_SIZE_BIG, 0, $FONT_METER, $dl);
-    $ulBbox = imageftbbox($FONT_LABEL_SIZE_BIG, 0, $FONT_LABEL, $UL_TEXT);
-    $ulMeterBbox = imageftbbox($FONT_METER_SIZE_BIG, 0, $FONT_METER, $ul);
-    $watermarkBbox = imageftbbox($FONT_WATERMARK_SIZE, 0, $FONT_WATERMARK, $WATERMARK_TEXT);
-    $POSITION_X_WATERMARK = $WIDTH - $watermarkBbox[4] - 4 * $SCALE;
-
-    // put the parts together to draw the image
-    imagefilledrectangle($im, 0, 0, $WIDTH, $HEIGHT, $BACKGROUND_COLOR);
-    // ping
-    imagefttext($im, $FONT_LABEL_SIZE, 0, $POSITION_X_PING - $pingBbox[4] / 2, $POSITION_Y_PING_LABEL, $TEXT_COLOR_LABEL, $FONT_LABEL, $PING_TEXT);
-    imagefttext($im, $FONT_METER_SIZE, 0, $POSITION_X_PING - $pingMeterBbox[4] / 2 - $msBbox[4] / 2 - $SMALL_SEP / 2, $POSITION_Y_PING_METER, $TEXT_COLOR_PING_METER, $FONT_METER, $ping);
-    imagefttext($im, $FONT_MEASURE_SIZE, 0, $POSITION_X_PING + $pingMeterBbox[4] / 2 + $SMALL_SEP / 2 - $msBbox[4] / 2, $POSITION_Y_PING_MEASURE, $TEXT_COLOR_MEASURE, $FONT_MEASURE, $MS_TEXT);
-    // jitter
-    imagefttext($im, $FONT_LABEL_SIZE, 0, $POSITION_X_JIT - $jitBbox[4] / 2, $POSITION_Y_JIT_LABEL, $TEXT_COLOR_LABEL, $FONT_LABEL, $JIT_TEXT);
-    imagefttext($im, $FONT_METER_SIZE, 0, $POSITION_X_JIT - $jitMeterBbox[4] / 2 - $msBbox[4] / 2 - $SMALL_SEP / 2, $POSITION_Y_JIT_METER, $TEXT_COLOR_JIT_METER, $FONT_METER, $jit);
-    imagefttext($im, $FONT_MEASURE_SIZE, 0, $POSITION_X_JIT + $jitMeterBbox[4] / 2 + $SMALL_SEP / 2 - $msBbox[4] / 2, $POSITION_Y_JIT_MEASURE, $TEXT_COLOR_MEASURE, $FONT_MEASURE, $MS_TEXT);
-    // dl
-    imagefttext($im, $FONT_LABEL_SIZE_BIG, 0, $POSITION_X_DL - $dlBbox[4] / 2, $POSITION_Y_DL_LABEL, $TEXT_COLOR_LABEL, $FONT_LABEL, $DL_TEXT);
-    imagefttext($im, $FONT_METER_SIZE_BIG, 0, $POSITION_X_DL - $dlMeterBbox[4] / 2, $POSITION_Y_DL_METER, $TEXT_COLOR_DL_METER, $FONT_METER, $dl);
-    imagefttext($im, $FONT_MEASURE_SIZE_BIG, 0, $POSITION_X_DL - $mbpsBbox[4] / 2, $POSITION_Y_DL_MEASURE, $TEXT_COLOR_MEASURE, $FONT_MEASURE, $MBPS_TEXT);
-    // ul
-    imagefttext($im, $FONT_LABEL_SIZE_BIG, 0, $POSITION_X_UL - $ulBbox[4] / 2, $POSITION_Y_UL_LABEL, $TEXT_COLOR_LABEL, $FONT_LABEL, $UL_TEXT);
-    imagefttext($im, $FONT_METER_SIZE_BIG, 0, $POSITION_X_UL - $ulMeterBbox[4] / 2, $POSITION_Y_UL_METER, $TEXT_COLOR_UL_METER, $FONT_METER, $ul);
-    imagefttext($im, $FONT_MEASURE_SIZE_BIG, 0, $POSITION_X_UL - $mbpsBbox[4] / 2, $POSITION_Y_UL_MEASURE, $TEXT_COLOR_MEASURE, $FONT_MEASURE, $MBPS_TEXT);
-    // isp
-    imagefttext($im, $FONT_ISP_SIZE, 0, $POSITION_X_ISP, $POSITION_Y_ISP, $TEXT_COLOR_ISP, $FONT_ISP, $ispinfo);
-    // separator
-    imagefilledrectangle($im, 0, $SEPARATOR_Y, $WIDTH, $SEPARATOR_Y, $SEPARATOR_COLOR);
-    // timestamp
-    imagefttext($im, $FONT_TIMESTAMP_SIZE, 0, $POSITION_X_TIMESTAMP, $POSITION_Y_TIMESTAMP, $TEXT_COLOR_TIMESTAMP, $FONT_TIMESTAMP, $timestamp);
-    // watermark
-    imagefttext($im, $FONT_WATERMARK_SIZE, 0, $POSITION_X_WATERMARK, $POSITION_Y_WATERMARK, $TEXT_COLOR_WATERMARK, $FONT_WATERMARK, $WATERMARK_TEXT);
-
-    // send the image to the browser
     header('Content-Type: image/png');
     imagepng($im);
 }

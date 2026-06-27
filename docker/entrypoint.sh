@@ -81,11 +81,13 @@ if [[ "$MODE" == "frontend" || "$MODE" == "dual" ||  "$MODE" == "standalone" ]];
   cp /speedtest/index-modern.html /var/www/html/
   cp /speedtest/stability.html /var/www/html/
   # Copy frontend assets directly to root-level subdirectories (no frontend/ parent dir)
-  mkdir -p /var/www/html/styling /var/www/html/javascript /var/www/html/images /var/www/html/fonts
+  mkdir -p /var/www/html/styling /var/www/html/javascript /var/www/html/images /var/www/html/fonts /var/www/html/branding
   cp -a /speedtest/frontend/styling/* /var/www/html/styling/
   cp -a /speedtest/frontend/javascript/* /var/www/html/javascript/
   cp -a /speedtest/frontend/images/* /var/www/html/images/
   cp -a /speedtest/frontend/fonts/* /var/www/html/fonts/ 2>/dev/null || true
+  cp -a /speedtest/frontend/branding/* /var/www/html/branding/ 2>/dev/null || true
+  cp -a /speedtest/branding/* /var/www/html/branding/ 2>/dev/null || true
 
   # Copy frontend config files
   cp /speedtest/frontend/settings.json /var/www/html/settings.json 2>/dev/null || true

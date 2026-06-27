@@ -29,12 +29,37 @@ const testState = {
 
 // Bootstrap the application when the DOM is ready
 window.addEventListener("DOMContentLoaded", async () => {
+  applyBrandLogo();
   createSpeedtest();
   hookUpButtons();
   startRenderingLoop();
   applySettingsJSON();
   applyServerListJSON();
 });
+
+/**
+ * Prefer a deployer-provided logo from branding/logo.svg or branding/logo.png.
+ */
+function applyBrandLogo() {
+  const logos = document.querySelectorAll("[data-brand-logo]");
+  if (!logos.length) return;
+
+  const candidates = ["branding/logo.svg", "branding/logo.png"];
+  const loadCandidate = index => {
+    if (index >= candidates.length) return;
+
+    const probe = new Image();
+    probe.onload = () => {
+      logos.forEach(logo => {
+        logo.src = candidates[index];
+      });
+    };
+    probe.onerror = () => loadCandidate(index + 1);
+    probe.src = `${candidates[index]}?r=${Date.now()}`;
+  };
+
+  loadCandidate(0);
+}
 
 /**
  * Create a new Speedtest and hook it into the global state

@@ -7,13 +7,15 @@ This directory contains the modern LibreSpeed UI assets.
 For installation and deployment, follow the top-level [README.md](../README.md)
 and [DESIGN_SWITCH.md](../DESIGN_SWITCH.md). In non-Docker deployments, the
 contents of this directory must be copied so `styling/`, `javascript/`,
-`images/`, and `fonts/` sit next to the root HTML files.
+`images/`, `fonts/`, and `branding/` sit next to the root HTML files.
 
 ## Configuration
 
 - `server-list.json` contains the default server list used by the modern UI.
 - `settings.json` overrides selected `speedtest_worker.js` settings.
 - `index.html` and `index-modern.html` show how the frontend is wired up.
+- `branding/logo.svg` or `branding/logo.png` overrides the default LibreSpeed
+  logo in the modern UI.
 
 ## Notes
 

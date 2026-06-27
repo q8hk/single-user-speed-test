@@ -75,6 +75,7 @@ Assuming you have PHP and a web server installed, the installation steps are qui
 1. Download the source code and extract it
 1. Copy the project files to your web server's shared folder (ie. `/var/www/html/speedtest` for Apache). For the current layout, the web root should contain `index.html`, `index-classic.html`, `index-modern.html`, `stability.html`, `design-switch.js`, `config.json`, `speedtest.js`, `speedtest_worker.js`, `stability_worker.js`, `favicon.ico`, and the `backend` folder.
 1. Also copy the contents of `frontend/` into the same web root so the modern UI assets end up in `styling/`, `javascript/`, `images/`, and `fonts/` next to the HTML files.
+1. To replace the project logo, place your custom `logo.svg` or `logo.png` in a `branding/` folder next to `index-modern.html`.
 1. Optionally, copy the results folder too, and set up the database using the config file in it.
 1. Be sure your permissions allow read and execute access where needed.
 1. Visit YOURSITE/speedtest/index.html and voila!
@@ -127,11 +128,6 @@ A Rust implementation is available in the [`speedtest-rust`](https://github.com/
 ## Node.js backend
 
 A partial Node.js implementation is available in the `node` branch, developed by [dunklesToast](https://github.com/dunklesToast). It's not recommended to use at the moment.
-
-## Donate
-
-[![Donate with Liberapay](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/fdossena/donate)
-[Donate with PayPal](https://www.paypal.me/sineisochronic)
 
 ## License
 

@@ -45,6 +45,20 @@ dialog {
     cursor: pointer;
   }
 
+  &#share {
+    gap: 3rem;
+    padding: 5rem;
+
+    & > img#results {
+      display: block;
+      width: min(100%, 96rem);
+      max-height: 48vh;
+      object-fit: contain;
+      border-radius: 0.8rem;
+      box-shadow: 0 0.4rem 1.6rem 0 var(--popup-shadow-color);
+    }
+  }
+
   & > section {
     max-width: 800px;
     overflow-y: auto;

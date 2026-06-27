@@ -147,14 +147,14 @@ div.gauge {
   &.enabled {
     &.download {
       & > .progress:after {
-        border-color: var(--theme-pink);
+        border-color: var(--theme-blue);
       }
       & > .speed {
         &:before {
-          border-right-color: var(--gauge-pointer-pink);
+          border-right-color: var(--gauge-pointer-blue);
         }
         &:after {
-          border-color: var(--theme-pink);
+          border-color: var(--theme-blue);
         }
       }
     }

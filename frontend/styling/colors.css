@@ -1,6 +1,6 @@
 :root {
   --theme-green: #00c6df;
-  --theme-pink: #023ec3;
+  --theme-blue: #023ec3;
 
   --background-backup-color: #0e0720;
   --background-overlay-color: rgb(41 26 70 / 71%);
@@ -16,7 +16,7 @@
   --button-active-border-color: #00c6df;
   --button-gradient-1-color-1: #f5f5f5;
   --button-gradient-1-color-2: var(--theme-green);
-  --button-gradient-1-color-3: var(--theme-pink);
+  --button-gradient-1-color-3: var(--theme-blue);
   --button-shadow-color: #00c6df;
   --button-disabled-background-color: #a2a2a2;
 
@@ -28,7 +28,7 @@
   --gauge-background-color: #3e2f50;
   --gauge-progress-color: #726c7a;
   --gauge-pointer-green: #00c6df;
-  --gauge-pointer-pink: #023ec3;
+  --gauge-pointer-blue: #023ec3;
 
   --ping-and-jitter-primary-text-color: #f5f5f5;
   --ping-and-jitter-secondary-text-color: #7b7b7b;
