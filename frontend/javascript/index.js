@@ -189,13 +189,18 @@ function formatCountdown(seconds) {
  */
 async function copyLinkButtonClickHandler() {
   const link = document.querySelector("img#results").src;
-  await navigator.clipboard.writeText(link);
+  if (link.startsWith("data:image/") && navigator.clipboard.write && typeof ClipboardItem !== "undefined") {
+    const blob = await fetch(link).then(response => response.blob());
+    await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+  } else {
+    await navigator.clipboard.writeText(link);
+  }
   const button = document.querySelector("#copy-link");
   button.classList.add("active");
-  button.textContent = "Copied!";
+  button.textContent = link.startsWith("data:image/") ? "Copied image!" : "Copied!";
   setTimeout(() => {
     button.classList.remove("active");
-    button.textContent = "Copy link";
+    button.textContent = link.startsWith("data:image/") ? "Copy image" : "Copy link";
   }, 3000);
 }
 
@@ -411,6 +416,7 @@ function startRenderingLoop() {
   const shareResults = document.querySelector("#share-results");
   const copyLink = document.querySelector("#copy-link");
   const resultsImage = document.querySelector("#results");
+  let lastShareSignature = "";
 
   const buttonTexts = {
     [INITIALIZING]: "Loading...",
@@ -467,11 +473,37 @@ function startRenderingLoop() {
       )
     );
 
-    // Show share button after test if server supports it
-    shareResults.classList.toggle(
-      "hidden",
-      !(testState.state === FINISHED && testState.telemetryEnabled && testState.testData.testId)
-    );
+    const canShareResults = testState.state === FINISHED && hasFinishedResultData(testState.testData);
+    shareResults.classList.toggle("hidden", !canShareResults);
+
+    if (!canShareResults) {
+      lastShareSignature = "";
+      resultsImage.removeAttribute("src");
+    } else {
+      const server = testState.speedtest.getSelectedServer();
+      const shareSignature = JSON.stringify({
+        testId: testState.testData.testId || "",
+        dl: testState.testData.dlStatus,
+        ul: testState.testData.ulStatus,
+        ping: testState.testData.pingStatus,
+        jitter: testState.testData.jitterStatus,
+        server: server ? server.name : ""
+      });
+
+      if (shareSignature !== lastShareSignature) {
+        if (testState.testData.testId) {
+          resultsImage.src =
+            window.location.href.substring(0, window.location.href.lastIndexOf("/")) +
+            "/results/?id=" +
+            testState.testData.testId;
+          copyLink.textContent = "Copy link";
+        } else {
+          resultsImage.src = createShareResultImage(testState.testData, server);
+          copyLink.textContent = "Copy image";
+        }
+        lastShareSignature = shareSignature;
+      }
+    }
 
     if (testState.testDataDirty) {
       // Set gauge rotations
@@ -507,14 +539,6 @@ function startRenderingLoop() {
         privacyWarning.appendChild(ipAddress);
 
         privacyWarning.classList.remove("hidden");
-      }
-
-      // Set image for sharing results
-      if (testState.testData.testId) {
-        resultsImage.src =
-          window.location.href.substring(0, window.location.href.lastIndexOf("/")) +
-          "/results/?id=" +
-          testState.testData.testId;
       }
 
       testState.testDataDirty = false;
@@ -575,4 +599,210 @@ function numberToText(value) {
   if (value < 10) return value.toFixed(2);
   if (value < 100) return value.toFixed(1);
   return value.toFixed(0);
+}
+
+function hasFinishedResultData(data) {
+  return !!(data && data.dlStatus && data.ulStatus && data.pingStatus && data.jitterStatus);
+}
+
+function createShareResultImage(data, server) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 1200;
+  canvas.height = 675;
+  const ctx = canvas.getContext("2d");
+
+  const colors = {
+    background: "#0e0720",
+    panel: "rgba(37, 27, 50, 0.88)",
+    border: "rgba(98, 91, 107, 0.55)",
+    track: "#3e2f50",
+    white: "#ffffff",
+    muted: "#898591",
+    cyan: "#00c6df",
+    blue: "#023ec3"
+  };
+
+  drawShareBackground(ctx, canvas.width, canvas.height, colors);
+  roundRect(ctx, 40, 34, 1120, 598, 22, colors.panel, colors.border);
+  drawShareBrand(ctx, colors);
+
+  ctx.font = "300 22px Inter, Arial, sans-serif";
+  ctx.fillStyle = colors.cyan;
+  ctx.fillText("Speed test result", 58, 126);
+
+  ctx.font = "300 18px Inter, Arial, sans-serif";
+  ctx.fillStyle = colors.muted;
+  ctx.textAlign = "right";
+  ctx.fillText(formatShareTimestamp(new Date()), 1142, 78);
+  ctx.textAlign = "left";
+
+  drawShareGauge(ctx, 360, 352, 372, colors.blue, colors.cyan, numberToText(data.dlStatus), "Download", colors);
+  drawShareGauge(ctx, 840, 352, 372, colors.cyan, colors.blue, numberToText(data.ulStatus), "Upload", colors);
+
+  drawShareStat(ctx, 142, 548, "Ping:", `${numberToText(data.pingStatus)} ms`, colors);
+  drawShareStat(ctx, 910, 548, "Jitter:", `${numberToText(data.jitterStatus)} ms`, colors);
+
+  ctx.strokeStyle = "rgba(98, 91, 107, 0.55)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(58, 580);
+  ctx.lineTo(1142, 580);
+  ctx.stroke();
+
+  ctx.font = "300 18px Inter, Arial, sans-serif";
+  ctx.fillStyle = colors.muted;
+  ctx.fillText(`Server: ${server && server.name ? server.name : "LibreSpeed"}`, 58, 612);
+  ctx.font = "700 18px Inter, Arial, sans-serif";
+  ctx.fillStyle = colors.cyan;
+  ctx.textAlign = "right";
+  ctx.fillText("LibreSpeed", 1142, 612);
+  ctx.textAlign = "left";
+
+  return canvas.toDataURL("image/png");
+}
+
+function drawShareBackground(ctx, width, height, colors) {
+  const gradient = ctx.createLinearGradient(0, 0, width, height);
+  gradient.addColorStop(0, colors.background);
+  gradient.addColorStop(0.55, "#1b1230");
+  gradient.addColorStop(1, colors.background);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+
+  let seed = 42;
+  for (let i = 0; i < 420; i++) {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    const x = (seed / 0xffffffff) * width;
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    const y = (seed / 0xffffffff) * height;
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    const alpha = 0.12 + (seed / 0xffffffff) * 0.32;
+    ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+    ctx.fillRect(x, y, 1.2, 1.2);
+  }
+
+  ctx.fillStyle = "rgba(41, 26, 70, 0.58)";
+  ctx.fillRect(0, 0, width, height);
+}
+
+function drawShareBrand(ctx, colors) {
+  ctx.fillStyle = colors.white;
+  ctx.font = "700 24px Inter, Arial, sans-serif";
+  ctx.fillText("LIBRE", 58, 78);
+
+  roundRect(ctx, 168, 53, 36, 28, 4, colors.white);
+  ctx.fillStyle = colors.blue;
+  ctx.beginPath();
+  ctx.moveTo(197, 57);
+  ctx.lineTo(180, 68);
+  ctx.lineTo(190, 69);
+  ctx.lineTo(175, 78);
+  ctx.lineTo(183, 67);
+  ctx.lineTo(174, 66);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = colors.cyan;
+  ctx.beginPath();
+  ctx.moveTo(194, 59);
+  ctx.lineTo(181, 68);
+  ctx.lineTo(190, 69);
+  ctx.lineTo(177, 77);
+  ctx.lineTo(188, 67);
+  ctx.lineTo(178, 66);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = colors.white;
+  ctx.fillText("SPEED", 214, 78);
+}
+
+function drawShareGauge(ctx, cx, cy, diameter, accent, highlight, value, label, colors) {
+  const radius = diameter / 2;
+  ctx.lineCap = "butt";
+  ctx.lineWidth = 32;
+  ctx.strokeStyle = colors.track;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, Math.PI, 0);
+  ctx.stroke();
+
+  ctx.strokeStyle = accent;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, Math.PI, Math.PI * 1.77);
+  ctx.stroke();
+
+  ctx.lineWidth = 11;
+  ctx.strokeStyle = highlight;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius + 18, Math.PI * 1.67, Math.PI * 1.98);
+  ctx.stroke();
+  ctx.lineWidth = 1;
+
+  const pointerAngle = Math.PI * 1.77;
+  const pointerX = cx + Math.cos(pointerAngle) * radius;
+  const pointerY = cy + Math.sin(pointerAngle) * radius;
+  ctx.fillStyle = colors.white;
+  ctx.beginPath();
+  ctx.moveTo(pointerX, pointerY);
+  ctx.lineTo(pointerX - 22, pointerY + 34);
+  ctx.lineTo(pointerX + 18, pointerY + 22);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.textAlign = "center";
+  ctx.fillStyle = colors.white;
+  ctx.font = "200 62px Inter, Arial, sans-serif";
+  ctx.fillText(value, cx, cy + 10);
+  ctx.fillStyle = colors.muted;
+  ctx.font = "300 22px Inter, Arial, sans-serif";
+  ctx.fillText("Mbps", cx, cy + 50);
+  ctx.font = "700 24px Inter, Arial, sans-serif";
+  ctx.fillText(label.toUpperCase(), cx, cy + 112);
+  ctx.textAlign = "left";
+}
+
+function drawShareStat(ctx, x, y, label, value, colors) {
+  ctx.font = "700 20px Inter, Arial, sans-serif";
+  ctx.fillStyle = colors.muted;
+  ctx.fillText(label, x, y);
+  ctx.font = "300 20px Inter, Arial, sans-serif";
+  ctx.fillStyle = colors.white;
+  ctx.fillText(value, x + ctx.measureText(label).width + 10, y);
+}
+
+function roundRect(ctx, x, y, width, height, radius, fill, stroke) {
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + width - radius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+  ctx.lineTo(x + width, y + height - radius);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  ctx.lineTo(x + radius, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.closePath();
+
+  if (fill) {
+    ctx.fillStyle = fill;
+    ctx.fill();
+  }
+  if (stroke) {
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+}
+
+function formatShareTimestamp(date) {
+  return date
+    .toLocaleString("en-US", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true
+    })
+    .replace(",", "");
 }
