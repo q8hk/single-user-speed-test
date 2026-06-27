@@ -45,6 +45,25 @@ function applyBrandLogo() {
   if (!logos.length) return;
 
   const candidates = ["branding/logo.svg", "branding/logo.png"];
+  if (window.fetch) {
+    (async () => {
+      for (const candidate of candidates) {
+        try {
+          const response = await fetch(candidate, { method: "HEAD", cache: "no-store" });
+          if (response.ok) {
+            logos.forEach(logo => {
+              logo.src = candidate;
+            });
+            return;
+          }
+        } catch (error) {
+          // Keep the bundled logo if the optional branding folder is unavailable.
+        }
+      }
+    })();
+    return;
+  }
+
   const loadCandidate = index => {
     if (index >= candidates.length) return;
 
