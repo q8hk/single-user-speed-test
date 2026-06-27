@@ -2,7 +2,7 @@
 
 require_once 'idObfuscation.php';
 
-define('TELEMETRY_SETTINGS_FILE', 'telemetry_settings.php');
+define('TELEMETRY_SETTINGS_FILE', __DIR__.'/telemetry_settings.php');
 
 /**
  * @return PDO|false
