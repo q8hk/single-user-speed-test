@@ -2,6 +2,7 @@ FROM php:8-apache
 
 # use docker-php-extension-installer for automatically get the right packages installed
 ADD --chmod=0755 https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
+RUN chmod +x /usr/local/bin/install-php-extensions
 
 # Install extensions and cleanup in a single layer to reduce image size
 RUN install-php-extensions iconv gd pdo pdo_mysql pdo_pgsql pgsql \
